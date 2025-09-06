@@ -1,4 +1,4 @@
-## Interface: 110200
+## Interface: 110005
 ## Version: 1.0.0
 ## Title: Lib's - Disenchant Assist
 ## Notes: Smart disenchanting assistant with advanced filtering and safety features

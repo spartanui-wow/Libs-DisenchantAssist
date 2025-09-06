@@ -46,6 +46,7 @@ local defaults = {
 	char = {
 		-- Character-specific data that should not be shared
 		itemFirstSeen = {}, -- Each character's item discovery history
+		blacklist = {}, -- Character-specific blacklisted items
 		windowPosition = { point = 'CENTER', x = 0, y = 0 },
 		minimap = { hide = false },
 	},
@@ -68,6 +69,70 @@ function LibsDisenchantAssist:OnInitialize()
 
 	-- Register chat commands
 	self:RegisterChatCommands()
+
+	-- Register as LibDataBroker object for addon display systems
+	local LDB = LibStub:GetLibrary('LibDataBroker-1.1', true)
+	if LDB then
+		local disenchantLDB = LDB:NewDataObject('LibsDisenchantAssist', {
+			type = 'launcher',
+			text = 'Disenchant Assist',
+			icon = 'Interface\\Icons\\INV_Enchant_Disenchant',
+			label = "Lib's - Disenchant Assist",
+
+			OnClick = function(self, button)
+				if button == 'LeftButton' then
+					LibsDisenchantAssist.UI:Toggle()
+				elseif button == 'RightButton' then
+					LibsDisenchantAssist.UI:Show()
+					if LibsDisenchantAssist.UI.isOptionsVisible == false then LibsDisenchantAssist.UI:ToggleOptions() end
+				end
+			end,
+
+			OnTooltipShow = function(tooltip)
+				if not tooltip then return end
+
+				tooltip:AddLine("|cff00ff00Lib's - Disenchant Assist|r")
+				tooltip:AddLine(' ')
+
+				-- Show current stats
+				local items = LibsDisenchantAssist.FilterSystem:GetDisenchantableItems()
+				local count = #items
+
+				if count > 0 then
+					tooltip:AddLine(string.format('|cffFFFFFF%d items|r ready to disenchant', count))
+				else
+					tooltip:AddLine('|cff888888No items to disenchant|r')
+				end
+
+				tooltip:AddLine(' ')
+				tooltip:AddLine('|cffFFFFFFLeft Click:|r |cff00ffffToggle main window|r')
+				tooltip:AddLine('|cffFFFFFFRight Click:|r |cff00ffffShow options panel|r')
+			end,
+
+			-- Update method for refreshing display
+			UpdateLDB = function(self)
+				local items = LibsDisenchantAssist.FilterSystem:GetDisenchantableItems()
+				local count = #items
+
+				if count > 0 then
+					self.text = string.format('DE: %d', count)
+				else
+					self.text = 'DE: 0'
+				end
+			end,
+		})
+
+		-- Store reference for updates
+		LibsDisenchantAssist._ldbObject = disenchantLDB
+
+		-- Setup LibDBIcon for minimap button if available
+		local LibDBIcon = LibStub:GetLibrary('LibDBIcon-1.0', true)
+		if LibDBIcon then LibDBIcon:Register('LibsDisenchantAssist', disenchantLDB, LibsDisenchantAssist.DBC.minimap) end
+
+		LibsDisenchantAssist:Print('Registered with LibDataBroker system')
+	else
+		LibsDisenchantAssist:Print('LibDataBroker not available - no minimap button')
+	end
 end
 
 ---Addon enabled
@@ -123,6 +188,8 @@ function LibsDisenchantAssist:HandleChatCommand(msg)
 		end
 	elseif command == 'stop' then
 		if self.DisenchantLogic then self.DisenchantLogic:StopBatchDisenchant() end
+	elseif command == 'debug' then
+		self:DebugOutput()
 	elseif command == 'help' then
 		self:Print('Commands:')
 		self:Print('/libsde or /libsde show - Show the main window')
@@ -131,6 +198,7 @@ function LibsDisenchantAssist:HandleChatCommand(msg)
 		self:Print('/libsde options - Show options panel')
 		self:Print('/libsde scan - Scan bags for new items')
 		self:Print('/libsde stop - Stop batch disenchanting')
+		self:Print('/libsde debug - Output detailed detection/filter debug info')
 		self:Print('/libsde help - Show this help')
 	else
 		self:Print('Unknown command: ' .. command .. ". Type '/libsde help' for commands.")
@@ -141,6 +209,145 @@ end
 ---@param message string
 function LibsDisenchantAssist:Print(message)
 	DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00Lib's Disenchant Assist:|r " .. message)
+end
+
+---Debug print function - uses SpartanUI debug window if available, otherwise chat
+---@param message string
+function LibsDisenchantAssist:DebugPrint(message)
+	if SUI and SUI.Log then
+		SUI.Log(message, 'Disenchant Assist')
+	else
+		self:Print('[DEBUG] ' .. message)
+	end
+end
+
+---Debug output function - outputs all detection and decision logic
+function LibsDisenchantAssist:DebugOutput()
+	self:DebugPrint('=== DEBUG OUTPUT START ===')
+
+	-- Show current settings
+	self:DebugPrint('Current Settings:')
+	self:DebugPrint('- Enabled: ' .. tostring(self.DB.enabled))
+	self:DebugPrint('- Exclude Today: ' .. tostring(self.DB.excludeToday))
+	self:DebugPrint('- Exclude Higher iLvl: ' .. tostring(self.DB.excludeHigherIlvl))
+	self:DebugPrint('- Exclude Gear Sets: ' .. tostring(self.DB.excludeGearSets))
+	self:DebugPrint('- Exclude Warbound: ' .. tostring(self.DB.excludeWarbound))
+	self:DebugPrint('- Exclude BOE: ' .. tostring(self.DB.excludeBOE))
+	self:DebugPrint('- Min iLvl: ' .. self.DB.minIlvl)
+	self:DebugPrint('- Max iLvl: ' .. self.DB.maxIlvl)
+
+	-- Scan all bags and show detailed item analysis
+	self:DebugPrint('Scanning bags for items...')
+	local totalItems = 0
+	local disenchantableItems = 0
+	local filteredOutItems = 0
+
+	for bag = 0, 4 do
+		local numSlots = C_Container.GetContainerNumSlots(bag)
+		if numSlots and numSlots > 0 then
+			for slot = 1, numSlots do
+				local itemInfo = C_Container.GetContainerItemInfo(bag, slot)
+				if itemInfo and itemInfo.itemID then
+					totalItems = totalItems + 1
+					local item = self.FilterSystem:CreateItemInfo(bag, slot, itemInfo)
+					if item then
+						local canDisenchant = self.FilterSystem:CanDisenchantItem(item)
+						local passesFilters = self.FilterSystem:PassesAllFilters(item, self.DB)
+
+						self:DebugPrint('Item: ' .. (item.itemLink or 'Unknown') .. ' (Bag ' .. bag .. ', Slot ' .. slot .. ')')
+						self:DebugPrint('  - Item ID: ' .. item.itemID)
+						self:DebugPrint('  - Class ID: ' .. (item.classID or 'nil'))
+						self:DebugPrint('  - Quality: ' .. (item.quality or 'nil'))
+						self:DebugPrint('  - iLvl: ' .. (item.itemLevel or 'nil'))
+						self:DebugPrint('  - Can Disenchant: ' .. tostring(canDisenchant))
+
+						if canDisenchant then
+							disenchantableItems = disenchantableItems + 1
+
+							-- Test each filter individually
+							local reasons = {}
+							if not self.DB.enabled then table.insert(reasons, 'Addon disabled') end
+
+							if self.DB.excludeToday and item.seenToday then table.insert(reasons, 'Seen today') end
+
+							if item.itemLevel < self.DB.minIlvl then table.insert(reasons, 'Below min iLvl') end
+
+							if item.itemLevel > self.DB.maxIlvl then table.insert(reasons, 'Above max iLvl') end
+
+							if self.DB.excludeHigherIlvl and self.FilterSystem:IsHigherThanEquipped(item) then table.insert(reasons, 'Higher than equipped') end
+
+							if self.DB.excludeGearSets and self.FilterSystem:IsInGearSet(item) then table.insert(reasons, 'In gear set') end
+
+							if self.DB.excludeWarbound and self.FilterSystem:IsWarbound(item) then table.insert(reasons, 'Warbound') end
+
+							if self.DB.excludeBOE and self.FilterSystem:IsBOE(item) then table.insert(reasons, 'BOE') end
+
+							if #reasons > 0 then
+								filteredOutItems = filteredOutItems + 1
+								self:DebugPrint('  - FILTERED OUT: ' .. table.concat(reasons, ', '))
+							else
+								self:DebugPrint('  - PASSES ALL FILTERS')
+							end
+						else
+							-- Show why it can't be disenchanted
+							local reasons = {}
+							if item.classID ~= 2 and item.classID ~= 4 then table.insert(reasons, 'Wrong item class (not Weapons/Armor)') end
+							if item.quality < 2 or item.quality > 4 then table.insert(reasons, 'Wrong quality (not Uncommon-Epic)') end
+							if not item.itemLevel or item.itemLevel < 1 then table.insert(reasons, 'No item level') end
+
+							self:DebugPrint('  - Cannot disenchant: ' .. table.concat(reasons, ', '))
+						end
+
+						self:DebugPrint('  ---')
+					end
+				end
+			end
+		end
+	end
+
+	-- Show final results
+	self:DebugPrint('=== SUMMARY ===')
+	self:DebugPrint('Total items in bags: ' .. totalItems)
+	self:DebugPrint('Items that can be disenchanted: ' .. disenchantableItems)
+	self:DebugPrint('Items filtered out: ' .. filteredOutItems)
+	self:DebugPrint('Items that would be shown: ' .. (disenchantableItems - filteredOutItems))
+
+	-- Get final filtered list
+	local finalItems = self.FilterSystem:GetDisenchantableItems()
+	self:DebugPrint('Final filtered list count: ' .. #finalItems)
+
+	if #finalItems > 0 then
+		self:DebugPrint('Final items to disenchant:')
+		for i, item in ipairs(finalItems) do
+			self:DebugPrint('  ' .. i .. '. ' .. item.itemLink .. ' (iLvl: ' .. item.itemLevel .. ')')
+		end
+	else
+		self:DebugPrint('No items in final list!')
+	end
+
+	self:DebugPrint('=== DEBUG OUTPUT END ===')
+end
+
+---Add an item to the blacklist
+---@param item table The item to blacklist
+function LibsDisenchantAssist:BlacklistItem(item)
+	if not item or not item.itemID then
+		self:Print('Error: Invalid item for blacklisting')
+		return
+	end
+
+	-- Add to character-specific blacklist (stored by itemID)
+	if not self.DBC.blacklist then self.DBC.blacklist = {} end
+
+	self.DBC.blacklist[item.itemID] = true
+	self:Print('Blacklisted: ' .. (item.itemLink or item.itemName or 'Unknown Item'))
+end
+
+---Check if an item is blacklisted
+---@param itemID number The item ID to check
+---@return boolean
+function LibsDisenchantAssist:IsItemBlacklisted(itemID)
+	return self.DBC.blacklist and self.DBC.blacklist[itemID] or false
 end
 
 ---Get configuration value
