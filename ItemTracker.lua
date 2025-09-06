@@ -6,13 +6,19 @@ local ItemTracker = {}
 
 ---Initialize ItemTracker
 function ItemTracker:Initialize()
-	LibsDisenchantAssist:RegisterEvent('LOOT_READY', function()
-		self:TrackLootedItems()
-	end)
+	LibsDisenchantAssist:RegisterEvent(
+		'LOOT_READY',
+		function()
+			self:TrackLootedItems()
+		end
+	)
 
-	LibsDisenchantAssist:RegisterEvent('BAG_UPDATE_DELAYED', function()
-		self:ScanBagsForNewItems()
-	end)
+	LibsDisenchantAssist:RegisterEvent(
+		'BAG_UPDATE_DELAYED',
+		function()
+			self:ScanBagsForNewItems()
+		end
+	)
 end
 
 ---Handle profile changes
@@ -29,7 +35,9 @@ function ItemTracker:TrackLootedItems()
 		local itemLink = GetLootSlotLink(i)
 		if itemLink then
 			local itemID = self:GetItemIDFromLink(itemLink)
-			if itemID then self:RecordFirstSeen(itemID, currentTime) end
+			if itemID then
+				self:RecordFirstSeen(itemID, currentTime)
+			end
 		end
 	end
 end
@@ -43,7 +51,9 @@ function ItemTracker:ScanBagsForNewItems()
 		if numSlots then
 			for slot = 1, numSlots do
 				local itemID = C_Container.GetContainerItemID(bag, slot)
-				if itemID and not LibsDisenchantAssist.DBC.itemFirstSeen[itemID] then self:RecordFirstSeen(itemID, currentTime) end
+				if itemID and not LibsDisenchantAssist.DBC.itemFirstSeen[itemID] then
+					self:RecordFirstSeen(itemID, currentTime)
+				end
 			end
 		end
 	end
@@ -53,7 +63,9 @@ end
 ---@param itemID number
 ---@param timestamp number
 function ItemTracker:RecordFirstSeen(itemID, timestamp)
-	if not LibsDisenchantAssist.DBC.itemFirstSeen[itemID] then LibsDisenchantAssist.DBC.itemFirstSeen[itemID] = timestamp end
+	if not LibsDisenchantAssist.DBC.itemFirstSeen[itemID] then
+		LibsDisenchantAssist.DBC.itemFirstSeen[itemID] = timestamp
+	end
 end
 
 ---Get formatted first seen date for an item
@@ -61,7 +73,9 @@ end
 ---@return string
 function ItemTracker:GetItemFirstSeenDate(itemID)
 	local timestamp = LibsDisenchantAssist.DBC.itemFirstSeen[itemID]
-	if timestamp then return date('%m/%d/%y', timestamp) end
+	if timestamp then
+		return date('%m/%d/%y', timestamp)
+	end
 	return 'Unknown'
 end
 
@@ -70,7 +84,9 @@ end
 ---@return boolean
 function ItemTracker:WasItemSeenToday(itemID)
 	local timestamp = LibsDisenchantAssist.DBC.itemFirstSeen[itemID]
-	if not timestamp then return true end
+	if not timestamp then
+		return true
+	end
 
 	local today = date('%j', time())
 	local itemDay = date('%j', timestamp)
@@ -81,7 +97,9 @@ end
 ---@param itemLink string|nil
 ---@return number|nil
 function ItemTracker:GetItemIDFromLink(itemLink)
-	if not itemLink then return nil end
+	if not itemLink then
+		return nil
+	end
 	return tonumber(string.match(itemLink, 'item:(%d+)'))
 end
 

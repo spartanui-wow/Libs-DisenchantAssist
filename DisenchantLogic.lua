@@ -16,21 +16,41 @@ end
 
 ---Initialize DisenchantLogic
 function DisenchantLogic:Initialize()
-	LibsDisenchantAssist:RegisterEvent('UNIT_SPELLCAST_START', function(event, unitID)
-		if unitID == 'player' then self:OnSpellcastStart() end
-	end)
+	LibsDisenchantAssist:RegisterEvent(
+		'UNIT_SPELLCAST_START',
+		function(event, unitID)
+			if unitID == 'player' then
+				self:OnSpellcastStart()
+			end
+		end
+	)
 
-	LibsDisenchantAssist:RegisterEvent('UNIT_SPELLCAST_SUCCEEDED', function(event, unitID, _, spellID)
-		if unitID == 'player' and spellID == self.DISENCHANT_SPELL_ID then self:OnDisenchantComplete() end
-	end)
+	LibsDisenchantAssist:RegisterEvent(
+		'UNIT_SPELLCAST_SUCCEEDED',
+		function(event, unitID, _, spellID)
+			if unitID == 'player' and spellID == self.DISENCHANT_SPELL_ID then
+				self:OnDisenchantComplete()
+			end
+		end
+	)
 
-	LibsDisenchantAssist:RegisterEvent('UNIT_SPELLCAST_FAILED', function(event, unitID)
-		if unitID == 'player' and self.isDisenchanting then self:OnDisenchantFailed() end
-	end)
+	LibsDisenchantAssist:RegisterEvent(
+		'UNIT_SPELLCAST_FAILED',
+		function(event, unitID)
+			if unitID == 'player' and self.isDisenchanting then
+				self:OnDisenchantFailed()
+			end
+		end
+	)
 
-	LibsDisenchantAssist:RegisterEvent('UNIT_SPELLCAST_INTERRUPTED', function(event, unitID)
-		if unitID == 'player' and self.isDisenchanting then self:OnDisenchantInterrupted() end
-	end)
+	LibsDisenchantAssist:RegisterEvent(
+		'UNIT_SPELLCAST_INTERRUPTED',
+		function(event, unitID)
+			if unitID == 'player' and self.isDisenchanting then
+				self:OnDisenchantInterrupted()
+			end
+		end
+	)
 end
 
 ---Check if player can disenchant
@@ -63,7 +83,9 @@ end
 ---@param item table
 ---@return boolean
 function DisenchantLogic:DisenchantItem(item)
-	if not self:CanDisenchant() then return false end
+	if not self:CanDisenchant() then
+		return false
+	end
 
 	if not item or not item.bag or not item.slot then
 		LibsDisenchantAssist:Print('Invalid item data.')
@@ -86,7 +108,7 @@ function DisenchantLogic:DisenchantItem(item)
 			end,
 			timeout = 0,
 			whileDead = true,
-			hideOnEscape = true,
+			hideOnEscape = true
 		}
 		StaticPopup_Show('LIBS_DISENCHANT_CONFIRM')
 	else
@@ -104,32 +126,35 @@ function DisenchantLogic:PerformDisenchant(item)
 
 	C_Container.UseContainerItem(item.bag, item.slot)
 
-	C_Timer.After(0.1, function()
-		if CursorHasSpell() then
+	C_Timer.After(
+		0.1,
+		function()
 			if CursorHasSpell() then
-				ClearCursor()
-				self.isDisenchanting = false
-				self.currentItem = nil
-				LibsDisenchantAssist:Print('Failed to start disenchanting ' .. item.itemLink)
+				if CursorHasSpell() then
+					ClearCursor()
+					self.isDisenchanting = false
+					self.currentItem = nil
+					LibsDisenchantAssist:Print('Failed to start disenchanting ' .. item.itemLink)
+				end
 			end
 		end
-	end)
+	)
 end
 
 ---Disenchant all filtered items
 function DisenchantLogic:DisenchantAll()
-	LibsDisenchantAssist:Print("=== DISENCHANT ALL DEBUG START ===")
-	
+	LibsDisenchantAssist:Print('=== DISENCHANT ALL DEBUG START ===')
+
 	if self.isDisenchanting then
 		LibsDisenchantAssist:Print('Already disenchanting an item.')
-		LibsDisenchantAssist:Print("=== DISENCHANT ALL DEBUG END ===")
+		LibsDisenchantAssist:Print('=== DISENCHANT ALL DEBUG END ===')
 		return
 	end
 
 	-- Check if we can disenchant at all
 	if not self:CanDisenchant() then
 		LibsDisenchantAssist:Print('Cannot disenchant right now (see previous messages)')
-		LibsDisenchantAssist:Print("=== DISENCHANT ALL DEBUG END ===")
+		LibsDisenchantAssist:Print('=== DISENCHANT ALL DEBUG END ===')
 		return
 	end
 
@@ -139,7 +164,7 @@ function DisenchantLogic:DisenchantAll()
 
 	if #items == 0 then
 		LibsDisenchantAssist:Print('No items to disenchant.')
-		LibsDisenchantAssist:Print("=== DISENCHANT ALL DEBUG END ===")
+		LibsDisenchantAssist:Print('=== DISENCHANT ALL DEBUG END ===')
 		return
 	end
 
@@ -166,15 +191,15 @@ function DisenchantLogic:DisenchantAll()
 			end,
 			timeout = 0,
 			whileDead = true,
-			hideOnEscape = true,
+			hideOnEscape = true
 		}
 		StaticPopup_Show('LIBS_DISENCHANT_ALL_CONFIRM')
 	else
 		LibsDisenchantAssist:Print('No confirmation needed - starting batch disenchant')
 		self:StartBatchDisenchant(items)
 	end
-	
-	LibsDisenchantAssist:Print("=== DISENCHANT ALL DEBUG END ===")
+
+	LibsDisenchantAssist:Print('=== DISENCHANT ALL DEBUG END ===')
 end
 
 ---Start batch disenchant process
@@ -211,7 +236,9 @@ end
 ---Handle spellcast start event
 function DisenchantLogic:OnSpellcastStart()
 	local name, _, _, _, _, _, _, _, spellId = UnitCastingInfo('player')
-	if spellId == self.DISENCHANT_SPELL_ID and self.currentItem then LibsDisenchantAssist:Print('Disenchanting ' .. self.currentItem.itemLink .. '...') end
+	if spellId == self.DISENCHANT_SPELL_ID and self.currentItem then
+		LibsDisenchantAssist:Print('Disenchanting ' .. self.currentItem.itemLink .. '...')
+	end
 end
 
 ---Handle successful disenchant completion
@@ -223,13 +250,23 @@ function DisenchantLogic:OnDisenchantComplete()
 
 	self.isDisenchanting = false
 
-	C_Timer.After(0.5, function()
-		if LibsDisenchantAssist.UI and LibsDisenchantAssist.UI.frame and LibsDisenchantAssist.UI.frame:IsVisible() then LibsDisenchantAssist.UI:RefreshItemList() end
+	C_Timer.After(
+		0.5,
+		function()
+			if LibsDisenchantAssist.UI and LibsDisenchantAssist.UI.frame and LibsDisenchantAssist.UI.frame:IsVisible() then
+				LibsDisenchantAssist.UI:RefreshItemList()
+			end
 
-		if #self.itemQueue > 0 then C_Timer.After(1, function()
-			self:ProcessNextItem()
-		end) end
-	end)
+			if #self.itemQueue > 0 then
+				C_Timer.After(
+					1,
+					function()
+						self:ProcessNextItem()
+					end
+				)
+			end
+		end
+	)
 end
 
 ---Handle disenchant failure

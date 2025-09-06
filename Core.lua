@@ -38,18 +38,16 @@ local defaults = {
 		excludeBOE = false,
 		minIlvl = 1,
 		maxIlvl = 999,
-		confirmDisenchant = true,
+		confirmDisenchant = true
 	},
-	global = {
-		-- Truly global data shared across all characters and profiles (none currently)
-	},
+	global = {},
 	char = {
 		-- Character-specific data that should not be shared
 		itemFirstSeen = {}, -- Each character's item discovery history
 		blacklist = {}, -- Character-specific blacklisted items
-		windowPosition = { point = 'CENTER', x = 0, y = 0 },
-		minimap = { hide = false },
-	},
+		windowPosition = {point = 'CENTER', x = 0, y = 0},
+		minimap = {hide = false}
+	}
 }
 
 ---Addon initialization
@@ -73,61 +71,68 @@ function LibsDisenchantAssist:OnInitialize()
 	-- Register as LibDataBroker object for addon display systems
 	local LDB = LibStub:GetLibrary('LibDataBroker-1.1', true)
 	if LDB then
-		local disenchantLDB = LDB:NewDataObject('LibsDisenchantAssist', {
-			type = 'launcher',
-			text = 'Disenchant Assist',
-			icon = 'Interface\\Icons\\INV_Enchant_Disenchant',
-			label = "Lib's - Disenchant Assist",
+		local disenchantLDB =
+			LDB:NewDataObject(
+			'LibsDisenchantAssist',
+			{
+				type = 'launcher',
+				text = 'Disenchant Assist',
+				icon = 'Interface\\Icons\\INV_Enchant_Disenchant',
+				label = "Lib's - Disenchant Assist",
+				OnClick = function(self, button)
+					if button == 'LeftButton' then
+						LibsDisenchantAssist.UI:Toggle()
+					elseif button == 'RightButton' then
+						LibsDisenchantAssist.UI:Show()
+						if LibsDisenchantAssist.UI.isOptionsVisible == false then
+							LibsDisenchantAssist.UI:ToggleOptions()
+						end
+					end
+				end,
+				OnTooltipShow = function(tooltip)
+					if not tooltip then
+						return
+					end
 
-			OnClick = function(self, button)
-				if button == 'LeftButton' then
-					LibsDisenchantAssist.UI:Toggle()
-				elseif button == 'RightButton' then
-					LibsDisenchantAssist.UI:Show()
-					if LibsDisenchantAssist.UI.isOptionsVisible == false then LibsDisenchantAssist.UI:ToggleOptions() end
+					tooltip:AddLine("|cff00ff00Lib's - Disenchant Assist|r")
+					tooltip:AddLine(' ')
+
+					-- Show current stats
+					local items = LibsDisenchantAssist.FilterSystem:GetDisenchantableItems()
+					local count = #items
+
+					if count > 0 then
+						tooltip:AddLine(string.format('|cffFFFFFF%d items|r ready to disenchant', count))
+					else
+						tooltip:AddLine('|cff888888No items to disenchant|r')
+					end
+
+					tooltip:AddLine(' ')
+					tooltip:AddLine('|cffFFFFFFLeft Click:|r |cff00ffffToggle main window|r')
+					tooltip:AddLine('|cffFFFFFFRight Click:|r |cff00ffffShow options panel|r')
+				end,
+				-- Update method for refreshing display
+				UpdateLDB = function(self)
+					local items = LibsDisenchantAssist.FilterSystem:GetDisenchantableItems()
+					local count = #items
+
+					if count > 0 then
+						self.text = string.format('DE: %d', count)
+					else
+						self.text = 'DE: 0'
+					end
 				end
-			end,
-
-			OnTooltipShow = function(tooltip)
-				if not tooltip then return end
-
-				tooltip:AddLine("|cff00ff00Lib's - Disenchant Assist|r")
-				tooltip:AddLine(' ')
-
-				-- Show current stats
-				local items = LibsDisenchantAssist.FilterSystem:GetDisenchantableItems()
-				local count = #items
-
-				if count > 0 then
-					tooltip:AddLine(string.format('|cffFFFFFF%d items|r ready to disenchant', count))
-				else
-					tooltip:AddLine('|cff888888No items to disenchant|r')
-				end
-
-				tooltip:AddLine(' ')
-				tooltip:AddLine('|cffFFFFFFLeft Click:|r |cff00ffffToggle main window|r')
-				tooltip:AddLine('|cffFFFFFFRight Click:|r |cff00ffffShow options panel|r')
-			end,
-
-			-- Update method for refreshing display
-			UpdateLDB = function(self)
-				local items = LibsDisenchantAssist.FilterSystem:GetDisenchantableItems()
-				local count = #items
-
-				if count > 0 then
-					self.text = string.format('DE: %d', count)
-				else
-					self.text = 'DE: 0'
-				end
-			end,
-		})
+			}
+		)
 
 		-- Store reference for updates
 		LibsDisenchantAssist._ldbObject = disenchantLDB
 
 		-- Setup LibDBIcon for minimap button if available
 		local LibDBIcon = LibStub:GetLibrary('LibDBIcon-1.0', true)
-		if LibDBIcon then LibDBIcon:Register('LibsDisenchantAssist', disenchantLDB, LibsDisenchantAssist.DBC.minimap) end
+		if LibDBIcon then
+			LibDBIcon:Register('LibsDisenchantAssist', disenchantLDB, LibsDisenchantAssist.DBC.minimap)
+		end
 
 		LibsDisenchantAssist:Print('Registered with LibDataBroker system')
 	else
@@ -148,10 +153,18 @@ function LibsDisenchantAssist:OnProfileChanged()
 	self.DBC = self.db.char
 
 	-- Notify subsystems of profile change
-	if self.UI then self.UI:OnProfileChanged() end
-	if self.ItemTracker then self.ItemTracker:OnProfileChanged() end
-	if self.FilterSystem then self.FilterSystem:OnProfileChanged() end
-	if self.DisenchantLogic then self.DisenchantLogic:OnProfileChanged() end
+	if self.UI then
+		self.UI:OnProfileChanged()
+	end
+	if self.ItemTracker then
+		self.ItemTracker:OnProfileChanged()
+	end
+	if self.FilterSystem then
+		self.FilterSystem:OnProfileChanged()
+	end
+	if self.DisenchantLogic then
+		self.DisenchantLogic:OnProfileChanged()
+	end
 end
 
 ---Register chat commands
@@ -171,15 +184,23 @@ function LibsDisenchantAssist:HandleChatCommand(msg)
 	local command = string.lower(string.trim(msg or ''))
 
 	if command == '' or command == 'show' then
-		if self.UI then self.UI:Show() end
+		if self.UI then
+			self.UI:Show()
+		end
 	elseif command == 'hide' then
-		if self.UI then self.UI:Hide() end
+		if self.UI then
+			self.UI:Hide()
+		end
 	elseif command == 'toggle' then
-		if self.UI then self.UI:Toggle() end
+		if self.UI then
+			self.UI:Toggle()
+		end
 	elseif command == 'options' then
 		if self.UI then
 			self.UI:Show()
-			if not self.UI.isOptionsVisible then self.UI:ToggleOptions() end
+			if not self.UI.isOptionsVisible then
+				self.UI:ToggleOptions()
+			end
 		end
 	elseif command == 'scan' then
 		if self.ItemTracker then
@@ -187,7 +208,9 @@ function LibsDisenchantAssist:HandleChatCommand(msg)
 			self:Print('Scanned bags for new items.')
 		end
 	elseif command == 'stop' then
-		if self.DisenchantLogic then self.DisenchantLogic:StopBatchDisenchant() end
+		if self.DisenchantLogic then
+			self.DisenchantLogic:StopBatchDisenchant()
+		end
 	elseif command == 'debug' then
 		self:DebugOutput()
 	elseif command == 'help' then
@@ -266,21 +289,37 @@ function LibsDisenchantAssist:DebugOutput()
 
 							-- Test each filter individually
 							local reasons = {}
-							if not self.DB.enabled then table.insert(reasons, 'Addon disabled') end
+							if not self.DB.enabled then
+								table.insert(reasons, 'Addon disabled')
+							end
 
-							if self.DB.excludeToday and item.seenToday then table.insert(reasons, 'Seen today') end
+							if self.DB.excludeToday and item.seenToday then
+								table.insert(reasons, 'Seen today')
+							end
 
-							if item.itemLevel < self.DB.minIlvl then table.insert(reasons, 'Below min iLvl') end
+							if item.itemLevel < self.DB.minIlvl then
+								table.insert(reasons, 'Below min iLvl')
+							end
 
-							if item.itemLevel > self.DB.maxIlvl then table.insert(reasons, 'Above max iLvl') end
+							if item.itemLevel > self.DB.maxIlvl then
+								table.insert(reasons, 'Above max iLvl')
+							end
 
-							if self.DB.excludeHigherIlvl and self.FilterSystem:IsHigherThanEquipped(item) then table.insert(reasons, 'Higher than equipped') end
+							if self.DB.excludeHigherIlvl and self.FilterSystem:IsHigherThanEquipped(item) then
+								table.insert(reasons, 'Higher than equipped')
+							end
 
-							if self.DB.excludeGearSets and self.FilterSystem:IsInGearSet(item) then table.insert(reasons, 'In gear set') end
+							if self.DB.excludeGearSets and self.FilterSystem:IsInGearSet(item) then
+								table.insert(reasons, 'In gear set')
+							end
 
-							if self.DB.excludeWarbound and self.FilterSystem:IsWarbound(item) then table.insert(reasons, 'Warbound') end
+							if self.DB.excludeWarbound and self.FilterSystem:IsWarbound(item) then
+								table.insert(reasons, 'Warbound')
+							end
 
-							if self.DB.excludeBOE and self.FilterSystem:IsBOE(item) then table.insert(reasons, 'BOE') end
+							if self.DB.excludeBOE and self.FilterSystem:IsBOE(item) then
+								table.insert(reasons, 'BOE')
+							end
 
 							if #reasons > 0 then
 								filteredOutItems = filteredOutItems + 1
@@ -291,9 +330,15 @@ function LibsDisenchantAssist:DebugOutput()
 						else
 							-- Show why it can't be disenchanted
 							local reasons = {}
-							if item.classID ~= 2 and item.classID ~= 4 then table.insert(reasons, 'Wrong item class (not Weapons/Armor)') end
-							if item.quality < 2 or item.quality > 4 then table.insert(reasons, 'Wrong quality (not Uncommon-Epic)') end
-							if not item.itemLevel or item.itemLevel < 1 then table.insert(reasons, 'No item level') end
+							if item.classID ~= 2 and item.classID ~= 4 then
+								table.insert(reasons, 'Wrong item class (not Weapons/Armor)')
+							end
+							if item.quality < 2 or item.quality > 4 then
+								table.insert(reasons, 'Wrong quality (not Uncommon-Epic)')
+							end
+							if not item.itemLevel or item.itemLevel < 1 then
+								table.insert(reasons, 'No item level')
+							end
 
 							self:DebugPrint('  - Cannot disenchant: ' .. table.concat(reasons, ', '))
 						end
@@ -337,7 +382,9 @@ function LibsDisenchantAssist:BlacklistItem(item)
 	end
 
 	-- Add to character-specific blacklist (stored by itemID)
-	if not self.DBC.blacklist then self.DBC.blacklist = {} end
+	if not self.DBC.blacklist then
+		self.DBC.blacklist = {}
+	end
 
 	self.DBC.blacklist[item.itemID] = true
 	self:Print('Blacklisted: ' .. (item.itemLink or item.itemName or 'Unknown Item'))
@@ -354,7 +401,7 @@ end
 ---@param key string
 ---@return any
 function LibsDisenchantAssist:GetConfig(key)
-	local keys = { strsplit('.', key) }
+	local keys = {strsplit('.', key)}
 	local current = self.db.global
 
 	for i = 1, #keys do
@@ -372,11 +419,13 @@ end
 ---@param key string
 ---@param value any
 function LibsDisenchantAssist:SetConfig(key, value)
-	local keys = { strsplit('.', key) }
+	local keys = {strsplit('.', key)}
 	local current = self.db.global
 
 	for i = 1, #keys - 1 do
-		if not current[keys[i]] then current[keys[i]] = {} end
+		if not current[keys[i]] then
+			current[keys[i]] = {}
+		end
 		current = current[keys[i]]
 	end
 
@@ -385,7 +434,9 @@ end
 
 ---Register as SpartanUI module
 function LibsDisenchantAssist:RegisterSpartanUIModule()
-	if not SUI or not SUI.opt or not SUI.opt.args or not SUI.opt.args.Modules then return end
+	if not SUI or not SUI.opt or not SUI.opt.args or not SUI.opt.args.Modules then
+		return
+	end
 
 	-- Create options table for SpartanUI integration
 	local optionsTable = {
@@ -410,7 +461,7 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 							self.UI:Hide()
 						end
 					end
-				end,
+				end
 			},
 			excludeToday = {
 				name = "Exclude Today's Items",
@@ -422,7 +473,7 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.excludeToday = val
-				end,
+				end
 			},
 			excludeHigherIlvl = {
 				name = 'Exclude Higher Item Level',
@@ -434,7 +485,7 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.excludeHigherIlvl = val
-				end,
+				end
 			},
 			excludeGearSets = {
 				name = 'Exclude Equipment Sets',
@@ -446,7 +497,7 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.excludeGearSets = val
-				end,
+				end
 			},
 			excludeWarbound = {
 				name = 'Exclude Warbound Items',
@@ -458,7 +509,7 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.excludeWarbound = val
-				end,
+				end
 			},
 			excludeBOE = {
 				name = 'Exclude Bind on Equip',
@@ -470,12 +521,12 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.excludeBOE = val
-				end,
+				end
 			},
 			spacer1 = {
 				name = '',
 				type = 'header',
-				order = 70,
+				order = 70
 			},
 			minIlvl = {
 				name = 'Minimum Item Level',
@@ -490,7 +541,7 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.minIlvl = val
-				end,
+				end
 			},
 			maxIlvl = {
 				name = 'Maximum Item Level',
@@ -505,12 +556,12 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.maxIlvl = val
-				end,
+				end
 			},
 			spacer2 = {
 				name = '',
 				type = 'header',
-				order = 100,
+				order = 100
 			},
 			confirmDisenchant = {
 				name = 'Confirm Disenchant',
@@ -522,12 +573,12 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.confirmDisenchant = val
-				end,
+				end
 			},
 			spacer3 = {
 				name = '',
 				type = 'header',
-				order = 120,
+				order = 120
 			},
 			showUI = {
 				name = 'Show Main Window',
@@ -535,8 +586,10 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				type = 'execute',
 				order = 130,
 				func = function()
-					if self.UI then self.UI:Show() end
-				end,
+					if self.UI then
+						self.UI:Show()
+					end
+				end
 			},
 			scanBags = {
 				name = 'Scan Bags',
@@ -548,9 +601,9 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 						self.ItemTracker:ScanBagsForNewItems()
 						self:Print('Scanned bags for new items.')
 					end
-				end,
-			},
-		},
+				end
+			}
+		}
 	}
 
 	-- Register options with SpartanUI

@@ -8,10 +8,13 @@ function OptionsPanel:Initialize()
 	panel.name = "Lib's - Disenchant Assist"
 	panel:Hide()
 
-	panel:SetScript('OnShow', function()
-		OptionsPanel:CreateOptions(panel)
-		panel:SetScript('OnShow', nil)
-	end)
+	panel:SetScript(
+		'OnShow',
+		function()
+			OptionsPanel:CreateOptions(panel)
+			panel:SetScript('OnShow', nil)
+		end
+	)
 
 	if InterfaceOptions_AddCategory then
 		InterfaceOptions_AddCategory(panel)
@@ -34,51 +37,72 @@ function OptionsPanel:CreateOptions(panel)
 	local enabledCheck = CreateFrame('CheckButton', 'LibsDAOptionsEnabled', panel, 'InterfaceOptionsCheckButtonTemplate')
 	enabledCheck:SetPoint('TOPLEFT', subtitle, 'BOTTOMLEFT', 0, -20)
 	enabledCheck.Text:SetText('Enable Disenchant Assist')
-	enabledCheck:SetScript('OnClick', function()
-		LibsDisenchantAssist.DB.enabled = enabledCheck:GetChecked()
-	end)
+	enabledCheck:SetScript(
+		'OnClick',
+		function()
+			LibsDisenchantAssist.DB.enabled = enabledCheck:GetChecked()
+		end
+	)
 
 	local excludeTodayCheck = CreateFrame('CheckButton', 'LibsDAOptionsExcludeToday', panel, 'InterfaceOptionsCheckButtonTemplate')
 	excludeTodayCheck:SetPoint('TOPLEFT', enabledCheck, 'BOTTOMLEFT', 0, -10)
 	excludeTodayCheck.Text:SetText("Don't disenchant items gained today")
-	excludeTodayCheck:SetScript('OnClick', function()
-		LibsDisenchantAssist.DB.excludeToday = excludeTodayCheck:GetChecked()
-	end)
+	excludeTodayCheck:SetScript(
+		'OnClick',
+		function()
+			LibsDisenchantAssist.DB.excludeToday = excludeTodayCheck:GetChecked()
+		end
+	)
 
 	local excludeHigherIlvlCheck = CreateFrame('CheckButton', 'LibsDAOptionsExcludeHigher', panel, 'InterfaceOptionsCheckButtonTemplate')
 	excludeHigherIlvlCheck:SetPoint('TOPLEFT', excludeTodayCheck, 'BOTTOMLEFT', 0, -10)
 	excludeHigherIlvlCheck.Text:SetText("Don't disenchant gear with higher item level than equipped")
-	excludeHigherIlvlCheck:SetScript('OnClick', function()
-		LibsDisenchantAssist.DB.excludeHigherIlvl = excludeHigherIlvlCheck:GetChecked()
-	end)
+	excludeHigherIlvlCheck:SetScript(
+		'OnClick',
+		function()
+			LibsDisenchantAssist.DB.excludeHigherIlvl = excludeHigherIlvlCheck:GetChecked()
+		end
+	)
 
 	local excludeGearSetsCheck = CreateFrame('CheckButton', 'LibsDAOptionsExcludeGearSets', panel, 'InterfaceOptionsCheckButtonTemplate')
 	excludeGearSetsCheck:SetPoint('TOPLEFT', excludeHigherIlvlCheck, 'BOTTOMLEFT', 0, -10)
 	excludeGearSetsCheck.Text:SetText("Don't disenchant gear in equipment sets")
-	excludeGearSetsCheck:SetScript('OnClick', function()
-		LibsDisenchantAssist.DB.excludeGearSets = excludeGearSetsCheck:GetChecked()
-	end)
+	excludeGearSetsCheck:SetScript(
+		'OnClick',
+		function()
+			LibsDisenchantAssist.DB.excludeGearSets = excludeGearSetsCheck:GetChecked()
+		end
+	)
 
 	local excludeWarboundCheck = CreateFrame('CheckButton', 'LibsDAOptionsExcludeWarbound', panel, 'InterfaceOptionsCheckButtonTemplate')
 	excludeWarboundCheck:SetPoint('TOPLEFT', excludeGearSetsCheck, 'BOTTOMLEFT', 0, -10)
 	excludeWarboundCheck.Text:SetText("Don't disenchant warbound gear")
-	excludeWarboundCheck:SetScript('OnClick', function()
-		LibsDisenchantAssist.DB.excludeWarbound = excludeWarboundCheck:GetChecked()
-	end)
+	excludeWarboundCheck:SetScript(
+		'OnClick',
+		function()
+			LibsDisenchantAssist.DB.excludeWarbound = excludeWarboundCheck:GetChecked()
+		end
+	)
 
 	local excludeBOECheck = CreateFrame('CheckButton', 'LibsDAOptionsExcludeBOE', panel, 'InterfaceOptionsCheckButtonTemplate')
 	excludeBOECheck:SetPoint('TOPLEFT', excludeWarboundCheck, 'BOTTOMLEFT', 0, -10)
 	excludeBOECheck.Text:SetText("Don't disenchant Bind on Equip gear")
-	excludeBOECheck:SetScript('OnClick', function()
-		LibsDisenchantAssist.DB.excludeBOE = excludeBOECheck:GetChecked()
-	end)
+	excludeBOECheck:SetScript(
+		'OnClick',
+		function()
+			LibsDisenchantAssist.DB.excludeBOE = excludeBOECheck:GetChecked()
+		end
+	)
 
 	local confirmCheck = CreateFrame('CheckButton', 'LibsDAOptionsConfirm', panel, 'InterfaceOptionsCheckButtonTemplate')
 	confirmCheck:SetPoint('TOPLEFT', excludeBOECheck, 'BOTTOMLEFT', 0, -10)
 	confirmCheck.Text:SetText('Confirm before disenchanting')
-	confirmCheck:SetScript('OnClick', function()
-		LibsDisenchantAssist.DB.confirmDisenchant = confirmCheck:GetChecked()
-	end)
+	confirmCheck:SetScript(
+		'OnClick',
+		function()
+			LibsDisenchantAssist.DB.confirmDisenchant = confirmCheck:GetChecked()
+		end
+	)
 
 	local minIlvlLabel = panel:CreateFontString(nil, 'ARTWORK', 'GameFontNormal')
 	minIlvlLabel:SetPoint('TOPLEFT', confirmCheck, 'BOTTOMLEFT', 0, -25)
@@ -89,11 +113,14 @@ function OptionsPanel:CreateOptions(panel)
 	minIlvlSlider:SetWidth(200)
 	minIlvlSlider:SetMinMaxValues(1, 999)
 	minIlvlSlider:SetValueStep(1)
-	minIlvlSlider:SetScript('OnValueChanged', function(self, value)
-		value = math.floor(value + 0.5)
-		LibsDisenchantAssist.DB.minIlvl = value
-		_G[self:GetName() .. 'Text']:SetText('Min iLvl: ' .. value)
-	end)
+	minIlvlSlider:SetScript(
+		'OnValueChanged',
+		function(self, value)
+			value = math.floor(value + 0.5)
+			LibsDisenchantAssist.DB.minIlvl = value
+			_G[self:GetName() .. 'Text']:SetText('Min iLvl: ' .. value)
+		end
+	)
 	_G[minIlvlSlider:GetName() .. 'Low']:SetText('1')
 	_G[minIlvlSlider:GetName() .. 'High']:SetText('999')
 	_G[minIlvlSlider:GetName() .. 'Text']:SetText('Min iLvl')
@@ -107,11 +134,14 @@ function OptionsPanel:CreateOptions(panel)
 	maxIlvlSlider:SetWidth(200)
 	maxIlvlSlider:SetMinMaxValues(1, 999)
 	maxIlvlSlider:SetValueStep(1)
-	maxIlvlSlider:SetScript('OnValueChanged', function(self, value)
-		value = math.floor(value + 0.5)
-		LibsDisenchantAssist.DB.maxIlvl = value
-		_G[self:GetName() .. 'Text']:SetText('Max iLvl: ' .. value)
-	end)
+	maxIlvlSlider:SetScript(
+		'OnValueChanged',
+		function(self, value)
+			value = math.floor(value + 0.5)
+			LibsDisenchantAssist.DB.maxIlvl = value
+			_G[self:GetName() .. 'Text']:SetText('Max iLvl: ' .. value)
+		end
+	)
 	_G[maxIlvlSlider:GetName() .. 'Low']:SetText('1')
 	_G[maxIlvlSlider:GetName() .. 'High']:SetText('999')
 	_G[maxIlvlSlider:GetName() .. 'Text']:SetText('Max iLvl')
@@ -120,9 +150,14 @@ function OptionsPanel:CreateOptions(panel)
 	openWindowButton:SetPoint('TOPLEFT', maxIlvlSlider, 'BOTTOMLEFT', -15, -40)
 	openWindowButton:SetSize(150, 22)
 	openWindowButton:SetText('Open Main Window')
-	openWindowButton:SetScript('OnClick', function()
-		if LibsDisenchantAssist.UI then LibsDisenchantAssist.UI:Show() end
-	end)
+	openWindowButton:SetScript(
+		'OnClick',
+		function()
+			if LibsDisenchantAssist.UI then
+				LibsDisenchantAssist.UI:Show()
+			end
+		end
+	)
 
 	panel.refresh = function()
 		OptionsPanel:RefreshOptions(panel)
@@ -132,7 +167,9 @@ function OptionsPanel:CreateOptions(panel)
 end
 
 function OptionsPanel:RefreshOptions(panel)
-	if not LibsDisenchantAssist.DB then return end
+	if not LibsDisenchantAssist.DB then
+		return
+	end
 
 	local options = LibsDisenchantAssist.DB
 
