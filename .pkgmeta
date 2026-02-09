@@ -1,0 +1,5 @@
+package-as: Libs-DisenchantAssist
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
