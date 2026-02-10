@@ -38,16 +38,16 @@ local defaults = {
 		excludeBOE = false,
 		minIlvl = 1,
 		maxIlvl = 999,
-		confirmDisenchant = true
+		confirmDisenchant = true,
 	},
 	global = {},
 	char = {
 		-- Character-specific data that should not be shared
 		itemFirstSeen = {}, -- Each character's item discovery history
 		blacklist = {}, -- Character-specific blacklisted items
-		windowPosition = {point = 'CENTER', x = 0, y = 0},
-		minimap = {hide = false}
-	}
+		windowPosition = { point = 'CENTER', x = 0, y = 0 },
+		minimap = { hide = false },
+	},
 }
 
 ---Addon initialization
@@ -71,59 +71,55 @@ function LibsDisenchantAssist:OnInitialize()
 	-- Register as LibDataBroker object for addon display systems
 	local LDB = LibStub:GetLibrary('LibDataBroker-1.1', true)
 	if LDB then
-		local disenchantLDB =
-			LDB:NewDataObject(
-			'LibsDisenchantAssist',
-			{
-				type = 'launcher',
-				text = 'Disenchant Assist',
-				icon = 'Interface\\Icons\\INV_Enchant_Disenchant',
-				label = "Lib's - Disenchant Assist",
-				OnClick = function(self, button)
-					if button == 'LeftButton' then
-						LibsDisenchantAssist.UI:Toggle()
-					elseif button == 'RightButton' then
-						LibsDisenchantAssist.UI:Show()
-						if LibsDisenchantAssist.UI.isOptionsVisible == false then
-							LibsDisenchantAssist.UI:ToggleOptions()
-						end
-					end
-				end,
-				OnTooltipShow = function(tooltip)
-					if not tooltip then
-						return
-					end
-
-					tooltip:AddLine("|cff00ff00Lib's - Disenchant Assist|r")
-					tooltip:AddLine(' ')
-
-					-- Show current stats
-					local items = LibsDisenchantAssist.FilterSystem:GetDisenchantableItems()
-					local count = #items
-
-					if count > 0 then
-						tooltip:AddLine(string.format('|cffFFFFFF%d items|r ready to disenchant', count))
-					else
-						tooltip:AddLine('|cff888888No items to disenchant|r')
-					end
-
-					tooltip:AddLine(' ')
-					tooltip:AddLine('|cffFFFFFFLeft Click:|r |cff00ffffToggle main window|r')
-					tooltip:AddLine('|cffFFFFFFRight Click:|r |cff00ffffShow options panel|r')
-				end,
-				-- Update method for refreshing display
-				UpdateLDB = function(self)
-					local items = LibsDisenchantAssist.FilterSystem:GetDisenchantableItems()
-					local count = #items
-
-					if count > 0 then
-						self.text = string.format('DE: %d', count)
-					else
-						self.text = 'DE: 0'
+		local disenchantLDB = LDB:NewDataObject('LibsDisenchantAssist', {
+			type = 'launcher',
+			text = 'Disenchant Assist',
+			icon = 'Interface\\Icons\\INV_Enchant_Disenchant',
+			label = "Lib's - Disenchant Assist",
+			OnClick = function(self, button)
+				if button == 'LeftButton' then
+					LibsDisenchantAssist.UI:Toggle()
+				elseif button == 'RightButton' then
+					LibsDisenchantAssist.UI:Show()
+					if LibsDisenchantAssist.UI.isOptionsVisible == false then
+						LibsDisenchantAssist.UI:ToggleOptions()
 					end
 				end
-			}
-		)
+			end,
+			OnTooltipShow = function(tooltip)
+				if not tooltip then
+					return
+				end
+
+				tooltip:AddLine("|cff00ff00Lib's - Disenchant Assist|r")
+				tooltip:AddLine(' ')
+
+				-- Show current stats
+				local items = LibsDisenchantAssist.FilterSystem:GetDisenchantableItems()
+				local count = #items
+
+				if count > 0 then
+					tooltip:AddLine(string.format('|cffFFFFFF%d items|r ready to disenchant', count))
+				else
+					tooltip:AddLine('|cff888888No items to disenchant|r')
+				end
+
+				tooltip:AddLine(' ')
+				tooltip:AddLine('|cffFFFFFFLeft Click:|r |cff00ffffToggle main window|r')
+				tooltip:AddLine('|cffFFFFFFRight Click:|r |cff00ffffShow options panel|r')
+			end,
+			-- Update method for refreshing display
+			UpdateLDB = function(self)
+				local items = LibsDisenchantAssist.FilterSystem:GetDisenchantableItems()
+				local count = #items
+
+				if count > 0 then
+					self.text = string.format('DE: %d', count)
+				else
+					self.text = 'DE: 0'
+				end
+			end,
+		})
 
 		-- Store reference for updates
 		LibsDisenchantAssist._ldbObject = disenchantLDB
@@ -401,7 +397,7 @@ end
 ---@param key string
 ---@return any
 function LibsDisenchantAssist:GetConfig(key)
-	local keys = {strsplit('.', key)}
+	local keys = { strsplit('.', key) }
 	local current = self.db.global
 
 	for i = 1, #keys do
@@ -419,7 +415,7 @@ end
 ---@param key string
 ---@param value any
 function LibsDisenchantAssist:SetConfig(key, value)
-	local keys = {strsplit('.', key)}
+	local keys = { strsplit('.', key) }
 	local current = self.db.global
 
 	for i = 1, #keys - 1 do
@@ -461,7 +457,7 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 							self.UI:Hide()
 						end
 					end
-				end
+				end,
 			},
 			excludeToday = {
 				name = "Exclude Today's Items",
@@ -473,7 +469,7 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.excludeToday = val
-				end
+				end,
 			},
 			excludeHigherIlvl = {
 				name = 'Exclude Higher Item Level',
@@ -485,7 +481,7 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.excludeHigherIlvl = val
-				end
+				end,
 			},
 			excludeGearSets = {
 				name = 'Exclude Equipment Sets',
@@ -497,7 +493,7 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.excludeGearSets = val
-				end
+				end,
 			},
 			excludeWarbound = {
 				name = 'Exclude Warbound Items',
@@ -509,7 +505,7 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.excludeWarbound = val
-				end
+				end,
 			},
 			excludeBOE = {
 				name = 'Exclude Bind on Equip',
@@ -521,12 +517,12 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.excludeBOE = val
-				end
+				end,
 			},
 			spacer1 = {
 				name = '',
 				type = 'header',
-				order = 70
+				order = 70,
 			},
 			minIlvl = {
 				name = 'Minimum Item Level',
@@ -541,7 +537,7 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.minIlvl = val
-				end
+				end,
 			},
 			maxIlvl = {
 				name = 'Maximum Item Level',
@@ -556,12 +552,12 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.maxIlvl = val
-				end
+				end,
 			},
 			spacer2 = {
 				name = '',
 				type = 'header',
-				order = 100
+				order = 100,
 			},
 			confirmDisenchant = {
 				name = 'Confirm Disenchant',
@@ -573,12 +569,12 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 				end,
 				set = function(_, val)
 					self.db.profile.options.confirmDisenchant = val
-				end
+				end,
 			},
 			spacer3 = {
 				name = '',
 				type = 'header',
-				order = 120
+				order = 120,
 			},
 			showUI = {
 				name = 'Show Main Window',
@@ -589,7 +585,7 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 					if self.UI then
 						self.UI:Show()
 					end
-				end
+				end,
 			},
 			scanBags = {
 				name = 'Scan Bags',
@@ -601,9 +597,9 @@ function LibsDisenchantAssist:RegisterSpartanUIModule()
 						self.ItemTracker:ScanBagsForNewItems()
 						self:Print('Scanned bags for new items.')
 					end
-				end
-			}
-		}
+				end,
+			},
+		},
 	}
 
 	-- Register options with SpartanUI

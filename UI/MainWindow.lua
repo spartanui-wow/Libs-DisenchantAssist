@@ -30,19 +30,13 @@ function UI:CreateSUIButton(parent, text, width, height)
 	button.Text:SetTextColor(1, 1, 1, 1)
 
 	-- Disabled state styling
-	button:HookScript(
-		'OnDisable',
-		function(self)
-			self.Text:SetTextColor(0.6, 0.6, 0.6, 0.6)
-		end
-	)
+	button:HookScript('OnDisable', function(self)
+		self.Text:SetTextColor(0.6, 0.6, 0.6, 0.6)
+	end)
 
-	button:HookScript(
-		'OnEnable',
-		function(self)
-			self.Text:SetTextColor(1, 1, 1, 1)
-		end
-	)
+	button:HookScript('OnEnable', function(self)
+		self.Text:SetTextColor(1, 1, 1, 1)
+	end)
 
 	return button
 end
@@ -62,20 +56,14 @@ function UI:CreateMainFrame()
 
 	-- Make draggable (SpartanUI style)
 	frame:EnableMouse(true)
-	frame:SetScript(
-		'OnMouseDown',
-		function(self, button)
-			if button == 'LeftButton' then
-				self:StartMoving()
-			end
+	frame:SetScript('OnMouseDown', function(self, button)
+		if button == 'LeftButton' then
+			self:StartMoving()
 		end
-	)
-	frame:SetScript(
-		'OnMouseUp',
-		function(self, button)
-			self:StopMovingOrSizing()
-		end
-	)
+	end)
+	frame:SetScript('OnMouseUp', function(self, button)
+		self:StopMovingOrSizing()
+	end)
 
 	self.frame = frame
 	return frame
@@ -102,34 +90,25 @@ function UI:CreateControlButtons()
 	-- Options button (SpartanUI AH style)
 	local optionsButton = self:CreateSUIButton(frame, 'Options', 80, 25)
 	optionsButton:SetPoint('TOPLEFT', 15, -45)
-	optionsButton:SetScript(
-		'OnClick',
-		function()
-			self:ToggleOptions()
-		end
-	)
+	optionsButton:SetScript('OnClick', function()
+		self:ToggleOptions()
+	end)
 	frame.OptionsButton = optionsButton
 
 	-- Debug button (SpartanUI AH style)
 	local debugButton = self:CreateSUIButton(frame, 'Debug', 60, 25)
 	debugButton:SetPoint('TOP', 0, -45)
-	debugButton:SetScript(
-		'OnClick',
-		function()
-			LibsDisenchantAssist:DebugOutput()
-		end
-	)
+	debugButton:SetScript('OnClick', function()
+		LibsDisenchantAssist:DebugOutput()
+	end)
 	frame.DebugButton = debugButton
 
 	-- Disenchant button (SpartanUI AH style)
 	local disenchantButton = self:CreateSUIButton(frame, 'Disenchant All', 100, 25)
 	disenchantButton:SetPoint('TOPRIGHT', -15, -45)
-	disenchantButton:SetScript(
-		'OnClick',
-		function()
-			LibsDisenchantAssist.DisenchantLogic:DisenchantAll()
-		end
-	)
+	disenchantButton:SetScript('OnClick', function()
+		LibsDisenchantAssist.DisenchantLogic:DisenchantAll()
+	end)
 	frame.DisenchantButton = disenchantButton
 
 	-- Item count display
@@ -152,17 +131,15 @@ function UI:CreateOptionsPanel()
 	-- Dark backdrop for SpartanUI consistency
 	if BackdropTemplateMixin then
 		Mixin(panel, BackdropTemplateMixin)
-		panel:SetBackdrop(
-			{
-				bgFile = 'Interface\\ChatFrame\\ChatFrameBackground',
-				edgeFile = 'Interface\\Tooltips\\UI-Tooltip-Border',
-				tile = true,
-				tileEdge = false,
-				tileSize = 16,
-				edgeSize = 8,
-				insets = {left = 2, right = 2, top = 2, bottom = 2}
-			}
-		)
+		panel:SetBackdrop({
+			bgFile = 'Interface\\ChatFrame\\ChatFrameBackground',
+			edgeFile = 'Interface\\Tooltips\\UI-Tooltip-Border',
+			tile = true,
+			tileEdge = false,
+			tileSize = 16,
+			edgeSize = 8,
+			insets = { left = 2, right = 2, top = 2, bottom = 2 },
+		})
 		panel:SetBackdropColor(0.1, 0.1, 0.1, 0.9) -- Dark background
 		panel:SetBackdropBorderColor(0.3, 0.3, 0.3, 1) -- Dark border
 	end
@@ -176,65 +153,50 @@ function UI:CreateOptionsPanelControls(panel)
 	local excludeTodayCheck = CreateFrame('CheckButton', panel:GetName() .. 'ExcludeTodayCheck', panel, 'InterfaceOptionsCheckButtonTemplate')
 	excludeTodayCheck:SetPoint('TOPLEFT', 10, -10)
 	excludeTodayCheck.Text:SetText("Don't DE items gained today")
-	excludeTodayCheck:SetScript(
-		'OnClick',
-		function()
-			LibsDisenchantAssist.DB.excludeToday = excludeTodayCheck:GetChecked()
-			self:RefreshItemList()
-		end
-	)
+	excludeTodayCheck:SetScript('OnClick', function()
+		LibsDisenchantAssist.DB.excludeToday = excludeTodayCheck:GetChecked()
+		self:RefreshItemList()
+	end)
 	panel.excludeTodayCheck = excludeTodayCheck
 
 	-- Exclude higher ilvl checkbox
 	local excludeHigherIlvlCheck = CreateFrame('CheckButton', panel:GetName() .. 'ExcludeHigherIlvlCheck', panel, 'InterfaceOptionsCheckButtonTemplate')
 	excludeHigherIlvlCheck:SetPoint('TOPLEFT', 10, -35)
 	excludeHigherIlvlCheck.Text:SetText("Don't DE higher ilvl gear")
-	excludeHigherIlvlCheck:SetScript(
-		'OnClick',
-		function()
-			LibsDisenchantAssist.DB.excludeHigherIlvl = excludeHigherIlvlCheck:GetChecked()
-			self:RefreshItemList()
-		end
-	)
+	excludeHigherIlvlCheck:SetScript('OnClick', function()
+		LibsDisenchantAssist.DB.excludeHigherIlvl = excludeHigherIlvlCheck:GetChecked()
+		self:RefreshItemList()
+	end)
 	panel.excludeHigherIlvlCheck = excludeHigherIlvlCheck
 
 	-- Exclude gear sets checkbox
 	local excludeGearSetsCheck = CreateFrame('CheckButton', panel:GetName() .. 'ExcludeGearSetsCheck', panel, 'InterfaceOptionsCheckButtonTemplate')
 	excludeGearSetsCheck:SetPoint('TOPLEFT', 10, -60)
 	excludeGearSetsCheck.Text:SetText("Don't DE gear in sets")
-	excludeGearSetsCheck:SetScript(
-		'OnClick',
-		function()
-			LibsDisenchantAssist.DB.excludeGearSets = excludeGearSetsCheck:GetChecked()
-			self:RefreshItemList()
-		end
-	)
+	excludeGearSetsCheck:SetScript('OnClick', function()
+		LibsDisenchantAssist.DB.excludeGearSets = excludeGearSetsCheck:GetChecked()
+		self:RefreshItemList()
+	end)
 	panel.excludeGearSetsCheck = excludeGearSetsCheck
 
 	-- Exclude warbound checkbox
 	local excludeWarboundCheck = CreateFrame('CheckButton', panel:GetName() .. 'ExcludeWarboundCheck', panel, 'InterfaceOptionsCheckButtonTemplate')
 	excludeWarboundCheck:SetPoint('TOPLEFT', 210, -10)
 	excludeWarboundCheck.Text:SetText("Don't DE warbound gear")
-	excludeWarboundCheck:SetScript(
-		'OnClick',
-		function()
-			LibsDisenchantAssist.DB.excludeWarbound = excludeWarboundCheck:GetChecked()
-			self:RefreshItemList()
-		end
-	)
+	excludeWarboundCheck:SetScript('OnClick', function()
+		LibsDisenchantAssist.DB.excludeWarbound = excludeWarboundCheck:GetChecked()
+		self:RefreshItemList()
+	end)
 	panel.excludeWarboundCheck = excludeWarboundCheck
 
 	-- Exclude BOE checkbox
 	local excludeBOECheck = CreateFrame('CheckButton', panel:GetName() .. 'ExcludeBOECheck', panel, 'InterfaceOptionsCheckButtonTemplate')
 	excludeBOECheck:SetPoint('TOPLEFT', 210, -35)
 	excludeBOECheck.Text:SetText("Don't DE BOE gear")
-	excludeBOECheck:SetScript(
-		'OnClick',
-		function()
-			LibsDisenchantAssist.DB.excludeBOE = excludeBOECheck:GetChecked()
-			self:RefreshItemList()
-		end
-	)
+	excludeBOECheck:SetScript('OnClick', function()
+		LibsDisenchantAssist.DB.excludeBOE = excludeBOECheck:GetChecked()
+		self:RefreshItemList()
+	end)
 	panel.excludeBOECheck = excludeBOECheck
 
 	-- Min ilvl slider
@@ -243,15 +205,12 @@ function UI:CreateOptionsPanelControls(panel)
 	minIlvlSlider:SetSize(150, 17)
 	minIlvlSlider:SetMinMaxValues(1, 999)
 	minIlvlSlider:SetValueStep(1)
-	minIlvlSlider:SetScript(
-		'OnValueChanged',
-		function(self, value)
-			value = math.floor(value + 0.5)
-			LibsDisenchantAssist.DB.minIlvl = value
-			_G[self:GetName() .. 'Text']:SetText('Min iLvl: ' .. value)
-			UI:RefreshItemList()
-		end
-	)
+	minIlvlSlider:SetScript('OnValueChanged', function(self, value)
+		value = math.floor(value + 0.5)
+		LibsDisenchantAssist.DB.minIlvl = value
+		_G[self:GetName() .. 'Text']:SetText('Min iLvl: ' .. value)
+		UI:RefreshItemList()
+	end)
 	_G[minIlvlSlider:GetName() .. 'Low']:SetText('1')
 	_G[minIlvlSlider:GetName() .. 'High']:SetText('999')
 	_G[minIlvlSlider:GetName() .. 'Text']:SetText('Min iLvl')
@@ -263,15 +222,12 @@ function UI:CreateOptionsPanelControls(panel)
 	maxIlvlSlider:SetSize(150, 17)
 	maxIlvlSlider:SetMinMaxValues(1, 999)
 	maxIlvlSlider:SetValueStep(1)
-	maxIlvlSlider:SetScript(
-		'OnValueChanged',
-		function(self, value)
-			value = math.floor(value + 0.5)
-			LibsDisenchantAssist.DB.maxIlvl = value
-			_G[self:GetName() .. 'Text']:SetText('Max iLvl: ' .. value)
-			UI:RefreshItemList()
-		end
-	)
+	maxIlvlSlider:SetScript('OnValueChanged', function(self, value)
+		value = math.floor(value + 0.5)
+		LibsDisenchantAssist.DB.maxIlvl = value
+		_G[self:GetName() .. 'Text']:SetText('Max iLvl: ' .. value)
+		UI:RefreshItemList()
+	end)
 	_G[maxIlvlSlider:GetName() .. 'Low']:SetText('1')
 	_G[maxIlvlSlider:GetName() .. 'High']:SetText('999')
 	_G[maxIlvlSlider:GetName() .. 'Text']:SetText('Max iLvl')
@@ -331,35 +287,77 @@ function UI:CreateItemButton(index)
 	highlight:SetColorTexture(0.3, 0.3, 0.3, 0.5) -- Subtle highlight
 	button:SetHighlightTexture(highlight)
 
-	-- DE (Disenchant) button
-	local deButton = self:CreateSUIButton(button, 'DE', 25, 18)
+	-- DE (Disenchant) button - Using secure button for hardware event protection
+	local deButton = CreateFrame('Button', nil, button, 'SecureActionButtonTemplate')
+	deButton:SetSize(25, 18)
 	deButton:SetPoint('LEFT', 2, 0)
-	deButton:SetScript(
-		'OnClick',
-		function()
-			if button.item then
-				LibsDisenchantAssist.DisenchantLogic:DisenchantItem(button.item)
+	deButton:SetText('DE')
+	deButton:SetNormalFontObject('GameFontNormalSmall')
+
+	-- Style the button using textures instead of backdrop
+	local normalTexture = deButton:CreateTexture(nil, 'BACKGROUND')
+	normalTexture:SetTexture('Interface\\Buttons\\UI-Panel-Button-Up')
+	normalTexture:SetAllPoints()
+	deButton:SetNormalTexture(normalTexture)
+
+	local pushedTexture = deButton:CreateTexture(nil, 'BACKGROUND')
+	pushedTexture:SetTexture('Interface\\Buttons\\UI-Panel-Button-Down')
+	pushedTexture:SetAllPoints()
+	deButton:SetPushedTexture(pushedTexture)
+
+	-- Use PreClick to set up the secure macro dynamically
+	deButton:SetAttribute('type', 'macro')
+	deButton:SetScript('PreClick', function(self)
+		if button.item then
+			local spellName = C_Spell.GetSpellName(13262) -- Disenchant spell ID
+			if spellName then
+				-- Set the macro to cast disenchant then use the item
+				local macroText = string.format('/cast %s\n/use %d %d', spellName, button.item.bag, button.item.slot)
+				self:SetAttribute('macrotext', macroText)
+				-- Mark that we're starting a disenchant operation
+				LibsDisenchantAssist.DisenchantLogic:StartSecureDisenchant(button.item)
+				LibsDisenchantAssist:DebugPrint('Secure macro set to: ' .. macroText)
+			else
+				self:SetAttribute('macrotext', '/script print("Disenchant spell not available")')
+				LibsDisenchantAssist:DebugPrint('Disenchant spell not found')
 			end
+		else
+			self:SetAttribute('macrotext', '/script print("No item selected")')
+			LibsDisenchantAssist:DebugPrint('No item selected for secure disenchant')
 		end
-	)
+	end)
+	deButton:SetScript('OnEnter', function(self)
+		GameTooltip:SetOwner(self, 'ANCHOR_TOP')
+		GameTooltip:SetText('Disenchant this item', 1, 1, 1)
+		GameTooltip:Show()
+	end)
+	deButton:SetScript('OnLeave', function()
+		GameTooltip:Hide()
+	end)
 	button.DEButton = deButton
 
 	-- NO (Blacklist) button
 	local noButton = self:CreateSUIButton(button, 'NO', 25, 18)
 	noButton:SetPoint('LEFT', deButton, 'RIGHT', 2, 0)
-	noButton:SetScript(
-		'OnClick',
-		function()
-			if button.item then
-				-- Add to blacklist (we'll implement this)
-				LibsDisenchantAssist:BlacklistItem(button.item)
-				-- Refresh the list to remove this item
-				if LibsDisenchantAssist.UI then
-					LibsDisenchantAssist.UI:RefreshItemList()
-				end
+	noButton:SetScript('OnClick', function()
+		if button.item then
+			-- Add to blacklist (we'll implement this)
+			LibsDisenchantAssist:BlacklistItem(button.item)
+			-- Refresh the list to remove this item
+			if LibsDisenchantAssist.UI then
+				LibsDisenchantAssist.UI:RefreshItemList()
 			end
 		end
-	)
+	end)
+	noButton:SetScript('OnEnter', function(self)
+		GameTooltip:SetOwner(self, 'ANCHOR_TOP')
+		GameTooltip:SetText('Blacklist this item', 1, 1, 1)
+		GameTooltip:AddLine('This item will not appear in the disenchant list again', 0.8, 0.8, 0.8)
+		GameTooltip:Show()
+	end)
+	noButton:SetScript('OnLeave', function()
+		GameTooltip:Hide()
+	end)
 	button.NOButton = noButton
 
 	-- Item icon (slightly larger)
@@ -391,23 +389,17 @@ function UI:CreateItemButton(index)
 	button.Date = date
 
 	-- Tooltip
-	button:SetScript(
-		'OnEnter',
-		function(self)
-			if self.item then
-				GameTooltip:SetOwner(self, 'ANCHOR_RIGHT')
-				GameTooltip:SetBagItem(self.item.bag, self.item.slot)
-				GameTooltip:Show()
-			end
+	button:SetScript('OnEnter', function(self)
+		if self.item then
+			GameTooltip:SetOwner(self, 'ANCHOR_RIGHT')
+			GameTooltip:SetBagItem(self.item.bag, self.item.slot)
+			GameTooltip:Show()
 		end
-	)
+	end)
 
-	button:SetScript(
-		'OnLeave',
-		function()
-			GameTooltip:Hide()
-		end
-	)
+	button:SetScript('OnLeave', function()
+		GameTooltip:Hide()
+	end)
 
 	return button
 end
@@ -421,13 +413,47 @@ function UI:Initialize()
 	self:CreateItemButtons()
 
 	-- Set up frame scripts
-	self.frame:SetScript(
-		'OnShow',
-		function()
-			self:RefreshItemList()
-			self:UpdateOptionsFromDB()
-		end
-	)
+	self.frame:SetScript('OnShow', function()
+		self:RefreshItemList()
+		self:UpdateOptionsFromDB()
+		self:RegisterBagEvents()
+	end)
+
+	self.frame:SetScript('OnHide', function()
+		self:UnregisterBagEvents()
+	end)
+end
+
+---Register bag update events
+function UI:RegisterBagEvents()
+	if not LibsDisenchantAssist or not LibsDisenchantAssist.RegisterEvent then
+		return
+	end
+
+	LibsDisenchantAssist:RegisterEvent('BAG_UPDATE', function()
+		self:RefreshItemList()
+	end)
+	LibsDisenchantAssist:RegisterEvent('BAG_UPDATE_DELAYED', function()
+		self:RefreshItemList()
+	end)
+	LibsDisenchantAssist:RegisterEvent('ITEM_LOCKED', function()
+		self:RefreshItemList()
+	end)
+	LibsDisenchantAssist:RegisterEvent('ITEM_UNLOCKED', function()
+		self:RefreshItemList()
+	end)
+end
+
+---Unregister bag update events
+function UI:UnregisterBagEvents()
+	if not LibsDisenchantAssist or not LibsDisenchantAssist.UnregisterEvent then
+		return
+	end
+
+	LibsDisenchantAssist:UnregisterEvent('BAG_UPDATE')
+	LibsDisenchantAssist:UnregisterEvent('BAG_UPDATE_DELAYED')
+	LibsDisenchantAssist:UnregisterEvent('ITEM_LOCKED')
+	LibsDisenchantAssist:UnregisterEvent('ITEM_UNLOCKED')
 end
 
 function UI:ToggleOptions()

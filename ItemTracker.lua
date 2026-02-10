@@ -6,19 +6,13 @@ local ItemTracker = {}
 
 ---Initialize ItemTracker
 function ItemTracker:Initialize()
-	LibsDisenchantAssist:RegisterEvent(
-		'LOOT_READY',
-		function()
-			self:TrackLootedItems()
-		end
-	)
+	LibsDisenchantAssist:RegisterEvent('LOOT_READY', function()
+		self:TrackLootedItems()
+	end)
 
-	LibsDisenchantAssist:RegisterEvent(
-		'BAG_UPDATE_DELAYED',
-		function()
-			self:ScanBagsForNewItems()
-		end
-	)
+	LibsDisenchantAssist:RegisterEvent('BAG_UPDATE_DELAYED', function()
+		self:ScanBagsForNewItems()
+	end)
 end
 
 ---Handle profile changes

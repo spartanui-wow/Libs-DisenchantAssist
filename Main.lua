@@ -6,33 +6,27 @@ local frame = CreateFrame('Frame')
 frame:RegisterEvent('ADDON_LOADED')
 frame:RegisterEvent('PLAYER_LOGIN')
 
-frame:SetScript(
-	'OnEvent',
-	function(self, event, addonName)
-		if event == 'ADDON_LOADED' and addonName == 'LibsDisenchantAssist' then
-			-- Initialize subsystems (Core is already initialized via AceAddon)
-			LibsDisenchantAssist.ItemTracker:Initialize()
-			LibsDisenchantAssist.DisenchantLogic:Initialize()
+frame:SetScript('OnEvent', function(self, event, addonName)
+	if event == 'ADDON_LOADED' and addonName == 'LibsDisenchantAssist' then
+		-- Initialize subsystems (Core is already initialized via AceAddon)
+		LibsDisenchantAssist.ItemTracker:Initialize()
+		LibsDisenchantAssist.DisenchantLogic:Initialize()
 
-			-- Check if SpartanUI is available and register as a module
-			if SUI and SUI.opt and SUI.opt.args and SUI.opt.args.Modules then
-				-- Register options with SpartanUI instead of creating standalone panel
-				LibsDisenchantAssist:RegisterSpartanUIModule()
-			else
-				-- Fallback to standalone options panel
-				LibsDisenchantAssist.OptionsPanel:Initialize()
-			end
-		elseif event == 'PLAYER_LOGIN' then
-			-- Do initial bag scan after player is fully logged in
-			C_Timer.After(
-				2,
-				function()
-					LibsDisenchantAssist.ItemTracker:ScanBagsForNewItems()
-				end
-			)
+		-- Check if SpartanUI is available and register as a module
+		if SUI and SUI.opt and SUI.opt.args and SUI.opt.args.Modules then
+			-- Register options with SpartanUI instead of creating standalone panel
+			LibsDisenchantAssist:RegisterSpartanUIModule()
+		else
+			-- Fallback to standalone options panel
+			LibsDisenchantAssist.OptionsPanel:Initialize()
 		end
+	elseif event == 'PLAYER_LOGIN' then
+		-- Do initial bag scan after player is fully logged in
+		C_Timer.After(2, function()
+			LibsDisenchantAssist.ItemTracker:ScanBagsForNewItems()
+		end)
 	end
-)
+end)
 
 SLASH_LIBSDISENCHANTASSIST1 = '/libsde'
 SLASH_LIBSDISENCHANTASSIST2 = '/disenchantassist'

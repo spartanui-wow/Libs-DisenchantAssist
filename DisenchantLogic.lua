@@ -8,6 +8,8 @@ DisenchantLogic.isDisenchanting = false
 DisenchantLogic.currentItem = nil
 DisenchantLogic.itemQueue = {}
 DisenchantLogic.DISENCHANT_SPELL_ID = 13262
+DisenchantLogic.secureOperationInProgress = false
+DisenchantLogic.expectedSpellcast = false
 
 ---Handle profile changes
 function DisenchantLogic:OnProfileChanged()
@@ -16,41 +18,54 @@ end
 
 ---Initialize DisenchantLogic
 function DisenchantLogic:Initialize()
-	LibsDisenchantAssist:RegisterEvent(
-		'UNIT_SPELLCAST_START',
-		function(event, unitID)
-			if unitID == 'player' then
-				self:OnSpellcastStart()
-			end
+	LibsDisenchantAssist:RegisterEvent('UNIT_SPELLCAST_START', function(event, unitID, _, spellID)
+		if unitID == 'player' then
+			self:OnSpellcastStart(spellID)
 		end
-	)
+	end)
 
-	LibsDisenchantAssist:RegisterEvent(
-		'UNIT_SPELLCAST_SUCCEEDED',
-		function(event, unitID, _, spellID)
-			if unitID == 'player' and spellID == self.DISENCHANT_SPELL_ID then
-				self:OnDisenchantComplete()
-			end
+	LibsDisenchantAssist:RegisterEvent('UNIT_SPELLCAST_SUCCEEDED', function(event, unitID, _, spellID)
+		if unitID == 'player' and spellID == self.DISENCHANT_SPELL_ID then
+			self:OnDisenchantComplete()
 		end
-	)
+	end)
 
-	LibsDisenchantAssist:RegisterEvent(
-		'UNIT_SPELLCAST_FAILED',
-		function(event, unitID)
-			if unitID == 'player' and self.isDisenchanting then
-				self:OnDisenchantFailed()
-			end
+	LibsDisenchantAssist:RegisterEvent('UNIT_SPELLCAST_FAILED', function(event, unitID)
+		if unitID == 'player' and self.isDisenchanting then
+			self:OnDisenchantFailed()
 		end
-	)
+	end)
 
-	LibsDisenchantAssist:RegisterEvent(
-		'UNIT_SPELLCAST_INTERRUPTED',
-		function(event, unitID)
-			if unitID == 'player' and self.isDisenchanting then
-				self:OnDisenchantInterrupted()
-			end
+	LibsDisenchantAssist:RegisterEvent('UNIT_SPELLCAST_INTERRUPTED', function(event, unitID)
+		if unitID == 'player' and self.isDisenchanting then
+			self:OnDisenchantInterrupted()
 		end
-	)
+	end)
+end
+
+---Start a secure disenchant operation (called by secure button PreClick)
+---@param item table
+function DisenchantLogic:StartSecureDisenchant(item)
+	if self.secureOperationInProgress then
+		LibsDisenchantAssist:Print('Disenchant operation already in progress')
+		return
+	end
+
+	self.secureOperationInProgress = true
+	self.expectedSpellcast = true
+	self.currentItem = item
+	LibsDisenchantAssist:Print('Starting secure disenchant for ' .. (item.itemName or 'item'))
+
+	-- Add a timeout to prevent stuck operations
+	C_Timer.After(10, function()
+		if self.secureOperationInProgress then
+			LibsDisenchantAssist:DebugPrint('Secure operation timed out, resetting flags')
+			self.secureOperationInProgress = false
+			self.expectedSpellcast = false
+			self.isDisenchanting = false
+			self.currentItem = nil
+		end
+	end)
 end
 
 ---Check if player can disenchant
@@ -108,7 +123,7 @@ function DisenchantLogic:DisenchantItem(item)
 			end,
 			timeout = 0,
 			whileDead = true,
-			hideOnEscape = true
+			hideOnEscape = true,
 		}
 		StaticPopup_Show('LIBS_DISENCHANT_CONFIRM')
 	else
@@ -124,21 +139,33 @@ function DisenchantLogic:PerformDisenchant(item)
 	self.isDisenchanting = true
 	self.currentItem = item
 
-	C_Container.UseContainerItem(item.bag, item.slot)
+	-- Cast the Disenchant spell first
+	local spellName = C_Spell.GetSpellName(self.DISENCHANT_SPELL_ID)
+	if not spellName then
+		LibsDisenchantAssist:Print('Disenchant spell not found')
+		self.isDisenchanting = false
+		self.currentItem = nil
+		return
+	end
 
-	C_Timer.After(
-		0.1,
-		function()
-			if CursorHasSpell() then
-				if CursorHasSpell() then
-					ClearCursor()
-					self.isDisenchanting = false
-					self.currentItem = nil
-					LibsDisenchantAssist:Print('Failed to start disenchanting ' .. item.itemLink)
-				end
-			end
+	if not CastSpellByName(spellName) then
+		LibsDisenchantAssist:Print('Failed to cast Disenchant spell')
+		self.isDisenchanting = false
+		self.currentItem = nil
+		return
+	end
+
+	-- Wait a bit for the spell to be cast and cursor to change
+	C_Timer.After(0.1, function()
+		if CursorHasSpell() then
+			-- Now click on the item to disenchant it
+			C_Container.UseContainerItem(item.bag, item.slot)
+		else
+			LibsDisenchantAssist:Print('Failed to start disenchanting - no spell cursor')
+			self.isDisenchanting = false
+			self.currentItem = nil
 		end
-	)
+	end)
 end
 
 ---Disenchant all filtered items
@@ -191,7 +218,7 @@ function DisenchantLogic:DisenchantAll()
 			end,
 			timeout = 0,
 			whileDead = true,
-			hideOnEscape = true
+			hideOnEscape = true,
 		}
 		StaticPopup_Show('LIBS_DISENCHANT_ALL_CONFIRM')
 	else
@@ -234,10 +261,26 @@ function DisenchantLogic:ProcessNextItem()
 end
 
 ---Handle spellcast start event
-function DisenchantLogic:OnSpellcastStart()
-	local name, _, _, _, _, _, _, _, spellId = UnitCastingInfo('player')
-	if spellId == self.DISENCHANT_SPELL_ID and self.currentItem then
-		LibsDisenchantAssist:Print('Disenchanting ' .. self.currentItem.itemLink .. '...')
+function DisenchantLogic:OnSpellcastStart(spellID)
+	LibsDisenchantAssist:DebugPrint('OnSpellcastStart fired, spellID=' .. tostring(spellID) .. ', expected=' .. tostring(self.DISENCHANT_SPELL_ID))
+	LibsDisenchantAssist:DebugPrint('secureOp=' .. tostring(self.secureOperationInProgress) .. ', expectedCast=' .. tostring(self.expectedSpellcast))
+
+	-- Validate this is the expected disenchant operation
+	if spellID == self.DISENCHANT_SPELL_ID then
+		if self.secureOperationInProgress and self.expectedSpellcast then
+			-- This is a valid secure disenchant operation
+			self.expectedSpellcast = false
+			self.isDisenchanting = true
+			if self.currentItem then
+				LibsDisenchantAssist:Print('Securely disenchanting ' .. self.currentItem.itemLink .. '...')
+			end
+		elseif self.isDisenchanting and self.currentItem then
+			-- Legacy non-secure operation (for batch mode)
+			LibsDisenchantAssist:Print('Disenchanting ' .. self.currentItem.itemLink .. '...')
+		else
+			-- Unexpected disenchant cast - could be security issue
+			LibsDisenchantAssist:Print('Warning: Unexpected disenchant spell cast detected')
+		end
 	end
 end
 
@@ -248,25 +291,22 @@ function DisenchantLogic:OnDisenchantComplete()
 		self.currentItem = nil
 	end
 
+	-- Reset all operation flags
 	self.isDisenchanting = false
+	self.secureOperationInProgress = false
+	self.expectedSpellcast = false
 
-	C_Timer.After(
-		0.5,
-		function()
-			if LibsDisenchantAssist.UI and LibsDisenchantAssist.UI.frame and LibsDisenchantAssist.UI.frame:IsVisible() then
-				LibsDisenchantAssist.UI:RefreshItemList()
-			end
-
-			if #self.itemQueue > 0 then
-				C_Timer.After(
-					1,
-					function()
-						self:ProcessNextItem()
-					end
-				)
-			end
+	C_Timer.After(0.5, function()
+		if LibsDisenchantAssist.UI and LibsDisenchantAssist.UI.frame and LibsDisenchantAssist.UI.frame:IsVisible() then
+			LibsDisenchantAssist.UI:RefreshItemList()
 		end
-	)
+
+		if #self.itemQueue > 0 then
+			C_Timer.After(1, function()
+				self:ProcessNextItem()
+			end)
+		end
+	end)
 end
 
 ---Handle disenchant failure
@@ -276,7 +316,10 @@ function DisenchantLogic:OnDisenchantFailed()
 		self.currentItem = nil
 	end
 
+	-- Reset all operation flags
 	self.isDisenchanting = false
+	self.secureOperationInProgress = false
+	self.expectedSpellcast = false
 	self.itemQueue = {}
 end
 
@@ -287,7 +330,10 @@ function DisenchantLogic:OnDisenchantInterrupted()
 		self.currentItem = nil
 	end
 
+	-- Reset all operation flags
 	self.isDisenchanting = false
+	self.secureOperationInProgress = false
+	self.expectedSpellcast = false
 	self.itemQueue = {}
 end
 

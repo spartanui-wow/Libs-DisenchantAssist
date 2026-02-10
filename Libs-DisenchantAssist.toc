@@ -2,10 +2,22 @@
 ## Version: 1.0.0
 ## Title: Lib's - Disenchant Assist
 ## Notes: Smart disenchanting assistant with advanced filtering and safety features
-## Author: Libs
+## IconTexture: Interface/Addons/Libs-DisenchantAssist/Logo-Icon
+## Author: Wutname1s
 ## OptionalDeps: SpartanUI
 ## SavedVariables: LibsDisenchantAssistDB
 ## SavedVariablesPerCharacter: LibsDisenchantAssistCharDB
+## Category: Professions
+## Category-deDE: Berufe
+## Category-esES: Profesiones
+## Category-esMX: Profesiones
+## Category-frFR: Métiers
+## Category-itIT: Professioni
+## Category-koKR: 전문 기술
+## Category-ptBR: Profissões
+## Category-ruRU: Профессии
+## Category-zhCN: 专业
+## Category-zhTW: 專業技能
 
 # Core files
 Core.lua
@@ -14,7 +26,6 @@ FilterSystem.lua
 DisenchantLogic.lua
 
 # UI files
-UI\MainWindow.xml
 UI\MainWindow.lua
 UI\OptionsPanel.lua
 

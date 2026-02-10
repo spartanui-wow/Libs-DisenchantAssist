@@ -65,7 +65,7 @@ function FilterSystem:CreateItemInfo(bag, slot, containerItemInfo)
 		quantity = containerItemInfo.stackCount or 1,
 		isBound = containerItemInfo.isBound,
 		firstSeen = LibsDisenchantAssist.ItemTracker:GetItemFirstSeenDate(itemID),
-		seenToday = LibsDisenchantAssist.ItemTracker:WasItemSeenToday(itemID)
+		seenToday = LibsDisenchantAssist.ItemTracker:WasItemSeenToday(itemID),
 	}
 end
 
@@ -105,8 +105,8 @@ function FilterSystem:CanDisenchantItem(item)
 	-- Additional checks for items that definitely can't be disenchanted
 	-- Skip items with no equipment slot (usually misc items incorrectly classified)
 	if item.classID == 4 and (not item.equipLoc or item.equipLoc == '') then
-	-- Some armor items don't have equipLoc but are still disenchantable (like off-hand items)
-	-- So we don't automatically exclude these, but we're more cautious
+		-- Some armor items don't have equipLoc but are still disenchantable (like off-hand items)
+		-- So we don't automatically exclude these, but we're more cautious
 	end
 
 	-- If we get here, the item should be disenchantable based on class and quality
@@ -126,15 +126,12 @@ function FilterSystem:FilterItems(items)
 		end
 	end
 
-	table.sort(
-		filtered,
-		function(a, b)
-			if a.itemLevel == b.itemLevel then
-				return a.itemName < b.itemName
-			end
-			return a.itemLevel < b.itemLevel
+	table.sort(filtered, function(a, b)
+		if a.itemLevel == b.itemLevel then
+			return a.itemName < b.itemName
 		end
-	)
+		return a.itemLevel < b.itemLevel
+	end)
 
 	return filtered
 end
@@ -214,28 +211,28 @@ end
 ---@return table<number, number>|nil
 function FilterSystem:GetSlotsByEquipLoc(equipLoc)
 	local slotMap = {
-		['INVTYPE_HEAD'] = {1},
-		['INVTYPE_NECK'] = {2},
-		['INVTYPE_SHOULDER'] = {3},
-		['INVTYPE_BODY'] = {4},
-		['INVTYPE_CHEST'] = {5},
-		['INVTYPE_WAIST'] = {6},
-		['INVTYPE_LEGS'] = {7},
-		['INVTYPE_FEET'] = {8},
-		['INVTYPE_WRIST'] = {9},
-		['INVTYPE_HAND'] = {10},
-		['INVTYPE_FINGER'] = {11, 12},
-		['INVTYPE_TRINKET'] = {13, 14},
-		['INVTYPE_WEAPON'] = {16, 17},
-		['INVTYPE_SHIELD'] = {17},
-		['INVTYPE_RANGED'] = {18},
-		['INVTYPE_CLOAK'] = {15},
-		['INVTYPE_2HWEAPON'] = {16, 17},
-		['INVTYPE_WEAPONMAINHAND'] = {16},
-		['INVTYPE_WEAPONOFFHAND'] = {17},
-		['INVTYPE_HOLDABLE'] = {17},
-		['INVTYPE_THROWN'] = {18},
-		['INVTYPE_RANGEDRIGHT'] = {18}
+		['INVTYPE_HEAD'] = { 1 },
+		['INVTYPE_NECK'] = { 2 },
+		['INVTYPE_SHOULDER'] = { 3 },
+		['INVTYPE_BODY'] = { 4 },
+		['INVTYPE_CHEST'] = { 5 },
+		['INVTYPE_WAIST'] = { 6 },
+		['INVTYPE_LEGS'] = { 7 },
+		['INVTYPE_FEET'] = { 8 },
+		['INVTYPE_WRIST'] = { 9 },
+		['INVTYPE_HAND'] = { 10 },
+		['INVTYPE_FINGER'] = { 11, 12 },
+		['INVTYPE_TRINKET'] = { 13, 14 },
+		['INVTYPE_WEAPON'] = { 16, 17 },
+		['INVTYPE_SHIELD'] = { 17 },
+		['INVTYPE_RANGED'] = { 18 },
+		['INVTYPE_CLOAK'] = { 15 },
+		['INVTYPE_2HWEAPON'] = { 16, 17 },
+		['INVTYPE_WEAPONMAINHAND'] = { 16 },
+		['INVTYPE_WEAPONOFFHAND'] = { 17 },
+		['INVTYPE_HOLDABLE'] = { 17 },
+		['INVTYPE_THROWN'] = { 18 },
+		['INVTYPE_RANGEDRIGHT'] = { 18 },
 	}
 	return slotMap[equipLoc]
 end
