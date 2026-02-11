@@ -127,6 +127,14 @@ function LibsDisenchantAssist:OnInitialize()
 		-- Setup LibDBIcon for minimap button if available
 		local LibDBIcon = LibStub:GetLibrary('LibDBIcon-1.0', true)
 		if LibDBIcon then
+			-- Smart default: hide minimap icon when Libs-DataBar is present
+			if not LibsDisenchantAssist.DBC.minimapDefaultApplied then
+				LibsDisenchantAssist.DBC.minimapDefaultApplied = true
+				if C_AddOns.IsAddOnLoaded('Libs-DataBar') then
+					LibsDisenchantAssist.DBC.minimap.hide = true
+				end
+			end
+
 			LibDBIcon:Register('LibsDisenchantAssist', disenchantLDB, LibsDisenchantAssist.DBC.minimap)
 		end
 
