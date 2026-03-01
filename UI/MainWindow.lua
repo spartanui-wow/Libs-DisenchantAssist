@@ -203,23 +203,23 @@ function MainWindow:CreateItemRow(parent, index)
 	icon:SetPoint('LEFT', 4, 0)
 	row.Icon = icon
 
-	local name = row:CreateFontString(nil, 'ARTWORK', 'GameFontNormalSmall')
-	name:SetPoint('LEFT', icon, 'RIGHT', 4, 0)
-	name:SetPoint('RIGHT', -120, 0)
-	name:SetJustifyH('LEFT')
-	name:SetWordWrap(false)
-	row.Name = name
-
-	local ilvl = row:CreateFontString(nil, 'ARTWORK', 'GameFontNormalSmall')
-	ilvl:SetPoint('RIGHT', -70, 0)
-	ilvl:SetJustifyH('RIGHT')
-	ilvl:SetTextColor(0.8, 0.8, 1, 1)
-	row.Ilvl = ilvl
-
 	-- Per-row secure disenchant button (1-click disenchant)
 	local deBtn = CreateFrame('Button', 'LibsDADeBtn' .. index, row, 'SecureActionButtonTemplate')
 	deBtn:SetSize(40, 18)
 	deBtn:SetPoint('RIGHT', -40, 0)
+
+	local ilvl = row:CreateFontString(nil, 'ARTWORK', 'GameFontNormalSmall')
+	ilvl:SetPoint('RIGHT', deBtn, 'LEFT', -4, 0)
+	ilvl:SetJustifyH('RIGHT')
+	ilvl:SetTextColor(0.8, 0.8, 1, 1)
+	row.Ilvl = ilvl
+
+	local name = row:CreateFontString(nil, 'ARTWORK', 'GameFontNormalSmall')
+	name:SetPoint('LEFT', icon, 'RIGHT', 4, 0)
+	name:SetPoint('RIGHT', ilvl, 'LEFT', -4, 0)
+	name:SetJustifyH('LEFT')
+	name:SetWordWrap(false)
+	row.Name = name
 	deBtn:RegisterForClicks('AnyUp', 'AnyDown')
 
 	local deBtnBg = deBtn:CreateTexture(nil, 'BACKGROUND')

@@ -4,8 +4,26 @@ _G.LibsDisenchantAssist = LibsDisenchantAssist
 
 LibsDisenchantAssist:SetDefaultModuleLibraries('AceEvent-3.0', 'AceTimer-3.0')
 
+-- All modules start disabled until we confirm enchanting is known
+LibsDisenchantAssist:SetDefaultModuleState(false)
+
 -- Spell ID for disenchant
 LibsDisenchantAssist.DISENCHANT_SPELL_ID = 13262
+
+-- Raw frame for profession detection events (lives outside Ace3 lifecycle)
+local professionFrame = CreateFrame('Frame')
+local trainerThrottleTimer = nil
+
+professionFrame:RegisterEvent('TRAINER_UPDATE')
+professionFrame:SetScript('OnEvent', function()
+	if trainerThrottleTimer then
+		trainerThrottleTimer:Cancel()
+	end
+	trainerThrottleTimer = C_Timer.NewTimer(2, function()
+		trainerThrottleTimer = nil
+		LibsDisenchantAssist:CheckEnchantingProfession()
+	end)
+end)
 
 ---@class LibsDisenchantAssistOptions
 ---@field enabled boolean
@@ -61,6 +79,9 @@ function LibsDisenchantAssist:OnInitialize()
 	-- Session-only ignore list (cleared on /rl)
 	self.sessionIgnore = {}
 
+	-- Tracks whether modules are currently active
+	self.modulesActive = false
+
 	if LibAT and LibAT.Logger then
 		self.logger = LibAT.Logger.RegisterAddon("Lib's Disenchant Assist")
 	end
@@ -69,16 +90,44 @@ function LibsDisenchantAssist:OnInitialize()
 end
 
 function LibsDisenchantAssist:OnEnable()
-	self:RegisterEvent('PLAYER_LOGIN', function()
-		C_Timer.After(2, function()
-			if self.ItemScanner then
-				self.ItemScanner:ScanBagsForNewItems()
-			end
-		end)
-	end)
+	-- Check immediately - no delay for players who already have enchanting
+	self:CheckEnchantingProfession()
+end
 
-	if self.logger then
-		self.logger.info('Enabled - Use /disenchant for commands')
+function LibsDisenchantAssist:CheckEnchantingProfession()
+	local hasDisenchant = self:KnowsDisenchant()
+
+	if hasDisenchant and not self.modulesActive then
+		self:EnableAllModules()
+		self.modulesActive = true
+		if self.ItemScanner then
+			self.ItemScanner:ScanBagsForNewItems()
+		end
+		if self.logger then
+			self.logger.info('Enchanting detected - modules enabled')
+		end
+	elseif not hasDisenchant and self.modulesActive then
+		if self.logger then
+			self.logger.info('Enchanting not found - modules disabled')
+		end
+		self:DisableAllModules()
+		self.modulesActive = false
+	elseif not hasDisenchant and not self.modulesActive then
+		if self.logger then
+			self.logger.info('Enchanting not found - addon idle')
+		end
+	end
+end
+
+function LibsDisenchantAssist:EnableAllModules()
+	for name, module in self:IterateModules() do
+		module:Enable()
+	end
+end
+
+function LibsDisenchantAssist:DisableAllModules()
+	for name, module in self:IterateModules() do
+		module:Disable()
 	end
 end
 
@@ -101,6 +150,13 @@ end
 ---@param msg string
 function LibsDisenchantAssist:HandleChatCommand(msg)
 	local command = string.lower(string.trim(msg or ''))
+
+	if not self.modulesActive then
+		if self.logger then
+			self.logger.info('Disenchant Assist is inactive - this character does not know Enchanting')
+		end
+		return
+	end
 
 	if command == '' or command == 'show' then
 		if self.MainWindow then
