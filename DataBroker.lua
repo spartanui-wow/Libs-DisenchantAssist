@@ -5,6 +5,16 @@ local LibsDisenchantAssist = LibStub('AceAddon-3.0'):GetAddon('LibsDisenchantAss
 local DataBroker = LibsDisenchantAssist:NewModule('DataBroker')
 LibsDisenchantAssist.DataBroker = DataBroker
 
+-- Resolve atlas to texture file + coords for LibDBIcon compatibility
+local ATLAS_NAME = 'lootroll-toast-icon-disenchant-up'
+local atlasIcon = 'Interface\\Icons\\INV_Enchant_Disenchant'
+local atlasCoords = nil
+local atlasInfo = C_Texture.GetAtlasInfo(ATLAS_NAME)
+if atlasInfo then
+	atlasIcon = atlasInfo.file
+	atlasCoords = { atlasInfo.leftTexCoord, atlasInfo.rightTexCoord, atlasInfo.topTexCoord, atlasInfo.bottomTexCoord }
+end
+
 function DataBroker:OnInitialize()
 	self.ldbObject = nil
 end
@@ -26,7 +36,8 @@ function DataBroker:RegisterLDB()
 	self.ldbObject = LDB:NewDataObject('LibsDisenchantAssist', {
 		type = 'data source',
 		text = 'DE: 0',
-		icon = 'Interface\\Icons\\INV_Enchant_Disenchant',
+		icon = atlasIcon,
+		iconCoords = atlasCoords,
 		label = "Lib's - Disenchant Assist",
 
 		OnClick = function(_, button)
@@ -66,17 +77,16 @@ function DataBroker:RegisterLDB()
 
 	LibsDisenchantAssist._ldbObject = self.ldbObject
 
-	local LibDBIcon = LibStub:GetLibrary('LibDBIcon-1.0', true)
-	if LibDBIcon then
-		if not LibsDisenchantAssist.DBC.minimapDefaultApplied then
-			LibsDisenchantAssist.DBC.minimapDefaultApplied = true
-			if C_AddOns.IsAddOnLoaded('Libs-DataBar') then
-				LibsDisenchantAssist.DBC.minimap.hide = true
-			end
-		end
+	self:RegisterMinimapIcon()
+end
 
-		LibDBIcon:Register('LibsDisenchantAssist', self.ldbObject, LibsDisenchantAssist.DBC.minimap)
+function DataBroker:RegisterMinimapIcon()
+	local LibDBIcon = LibStub:GetLibrary('LibDBIcon-1.0', true)
+	if not LibDBIcon then
+		return
 	end
+
+	LibDBIcon:Register('LibsDisenchantAssist', self.ldbObject, LibsDisenchantAssist.DBC.minimap)
 end
 
 function DataBroker:UpdateText()

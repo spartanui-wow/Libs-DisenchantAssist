@@ -62,7 +62,7 @@ local defaults = {
 	char = {
 		itemFirstSeen = {},
 		permanentIgnore = {},
-		minimap = { hide = false },
+		minimap = { hide = true },
 	},
 }
 
