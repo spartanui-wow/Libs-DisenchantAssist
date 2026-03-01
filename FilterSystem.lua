@@ -1,121 +1,43 @@
 ---@class LibsDisenchantAssist
-local LibsDisenchantAssist = _G.LibsDisenchantAssist
+local LibsDisenchantAssist = LibStub('AceAddon-3.0'):GetAddon('LibsDisenchantAssist')
 
----@class FilterSystem
-local FilterSystem = {}
+---@class LibsDisenchantAssist.FilterSystem : AceModule
+local FilterSystem = LibsDisenchantAssist:NewModule('FilterSystem')
+LibsDisenchantAssist.FilterSystem = FilterSystem
 
----Handle profile changes
-function FilterSystem:OnProfileChanged()
-	-- Nothing specific needed for profile changes currently
+local slotMap = {
+	['INVTYPE_HEAD'] = { 1 },
+	['INVTYPE_NECK'] = { 2 },
+	['INVTYPE_SHOULDER'] = { 3 },
+	['INVTYPE_BODY'] = { 4 },
+	['INVTYPE_CHEST'] = { 5 },
+	['INVTYPE_WAIST'] = { 6 },
+	['INVTYPE_LEGS'] = { 7 },
+	['INVTYPE_FEET'] = { 8 },
+	['INVTYPE_WRIST'] = { 9 },
+	['INVTYPE_HAND'] = { 10 },
+	['INVTYPE_FINGER'] = { 11, 12 },
+	['INVTYPE_TRINKET'] = { 13, 14 },
+	['INVTYPE_WEAPON'] = { 16, 17 },
+	['INVTYPE_SHIELD'] = { 17 },
+	['INVTYPE_RANGED'] = { 18 },
+	['INVTYPE_CLOAK'] = { 15 },
+	['INVTYPE_2HWEAPON'] = { 16, 17 },
+	['INVTYPE_WEAPONMAINHAND'] = { 16 },
+	['INVTYPE_WEAPONOFFHAND'] = { 17 },
+	['INVTYPE_HOLDABLE'] = { 17 },
+	['INVTYPE_THROWN'] = { 18 },
+	['INVTYPE_RANGEDRIGHT'] = { 18 },
+}
+
+---@return table[]
+function FilterSystem:GetFilteredItems()
+	local allItems = LibsDisenchantAssist.ItemScanner:GetDisenchantableItems()
+	return self:FilterItems(allItems)
 end
 
----Get all disenchantable items from bags
----@return table<number, table>
-function FilterSystem:GetDisenchantableItems()
-	local items = {}
-
-	for bag = 0, 4 do
-		local numSlots = C_Container.GetContainerNumSlots(bag)
-		if numSlots then
-			for slot = 1, numSlots do
-				local itemInfo = C_Container.GetContainerItemInfo(bag, slot)
-				if itemInfo and itemInfo.itemID then
-					local item = self:CreateItemInfo(bag, slot, itemInfo)
-					if item and self:CanDisenchantItem(item) then
-						table.insert(items, item)
-					end
-				end
-			end
-		end
-	end
-
-	return self:FilterItems(items)
-end
-
----Create item info structure
----@param bag number
----@param slot number
----@param containerItemInfo table
----@return table|nil
-function FilterSystem:CreateItemInfo(bag, slot, containerItemInfo)
-	local itemID = containerItemInfo.itemID
-	local itemLink = C_Container.GetContainerItemLink(bag, slot)
-
-	if not itemLink then
-		return nil
-	end
-
-	local itemName, _, itemQuality, itemLevel, _, _, _, _, equipLoc, _, _, classID, subClassID = C_Item.GetItemInfo(itemID)
-
-	if not itemName then
-		return nil
-	end
-
-	return {
-		bag = bag,
-		slot = slot,
-		itemID = itemID,
-		itemLink = itemLink,
-		itemName = itemName,
-		itemLevel = itemLevel or 0,
-		quality = itemQuality or 0,
-		equipLoc = equipLoc,
-		classID = classID,
-		subClassID = subClassID,
-		quantity = containerItemInfo.stackCount or 1,
-		isBound = containerItemInfo.isBound,
-		firstSeen = LibsDisenchantAssist.ItemTracker:GetItemFirstSeenDate(itemID),
-		seenToday = LibsDisenchantAssist.ItemTracker:WasItemSeenToday(itemID),
-	}
-end
-
----Check if item can be disenchanted
----@param item table
----@return boolean
-function FilterSystem:CanDisenchantItem(item)
-	-- First check if player knows the Disenchant spell (spell ID 13262)
-	if not C_SpellBook.IsSpellInSpellBook(13262) then
-		return false
-	end
-
-	-- Try using the WoW API first if available (more reliable than manual checks)
-	if C_Item and C_Item.IsDisenchantable then
-		local isDisenchantable = C_Item.IsDisenchantable(item.itemID)
-		if isDisenchantable ~= nil then
-			return isDisenchantable
-		end
-	end
-
-	-- Fallback to manual checks (for older clients or when API fails)
-	-- Must be Weapon (2) or Armor (4)
-	if item.classID ~= 2 and item.classID ~= 4 then
-		return false
-	end
-
-	-- Must be Uncommon (2), Rare (3), or Epic (4) quality
-	if item.quality < 2 or item.quality > 4 then
-		return false
-	end
-
-	-- Must have an item level (basic sanity check)
-	if not item.itemLevel or item.itemLevel < 1 then
-		return false
-	end
-
-	-- Additional checks for items that definitely can't be disenchanted
-	-- Skip items with no equipment slot (usually misc items incorrectly classified)
-	if item.classID == 4 and (not item.equipLoc or item.equipLoc == '') then
-		-- Some armor items don't have equipLoc but are still disenchantable (like off-hand items)
-		-- So we don't automatically exclude these, but we're more cautious
-	end
-
-	-- If we get here, the item should be disenchantable based on class and quality
-	return true
-end
-
----Apply filters to item list
----@param items table<number, table>
----@return table<number, table>
+---@param items table[]
+---@return table[]
 function FilterSystem:FilterItems(items)
 	local filtered = {}
 	local options = LibsDisenchantAssist.DB
@@ -127,16 +49,15 @@ function FilterSystem:FilterItems(items)
 	end
 
 	table.sort(filtered, function(a, b)
-		if a.itemLevel == b.itemLevel then
-			return a.itemName < b.itemName
+		if a.itemLevel ~= b.itemLevel then
+			return a.itemLevel < b.itemLevel
 		end
-		return a.itemLevel < b.itemLevel
+		return a.itemName < b.itemName
 	end)
 
 	return filtered
 end
 
----Check if item passes all filter criteria
 ---@param item table
 ---@param options LibsDisenchantAssistOptions
 ---@return boolean
@@ -145,12 +66,26 @@ function FilterSystem:PassesAllFilters(item, options)
 		return false
 	end
 
-	-- Check blacklist first (highest priority exclusion)
-	if LibsDisenchantAssist:IsItemBlacklisted(item.itemID) then
+	if LibsDisenchantAssist:IsItemIgnored(item.itemID) then
+		return false
+	end
+
+	if not self:PassesDisenchantFilters(item, options) then
 		return false
 	end
 
 	if options.excludeToday and item.seenToday then
+		return false
+	end
+
+	return true
+end
+
+---@param item table
+---@param options LibsDisenchantAssistOptions
+---@return boolean
+function FilterSystem:PassesDisenchantFilters(item, options)
+	if item.quality > options.deMaxQuality then
 		return false
 	end
 
@@ -174,10 +109,13 @@ function FilterSystem:PassesAllFilters(item, options)
 		return false
 	end
 
+	if options.excludePawnUpgrades and self:IsPawnUpgrade(item) then
+		return false
+	end
+
 	return true
 end
 
----Check if item has higher ilvl than currently equipped
 ---@param item table
 ---@return boolean
 function FilterSystem:IsHigherThanEquipped(item)
@@ -185,89 +123,59 @@ function FilterSystem:IsHigherThanEquipped(item)
 		return false
 	end
 
-	local slots = self:GetSlotsByEquipLoc(item.equipLoc)
+	local slots = slotMap[item.equipLoc]
 	if not slots then
 		return false
 	end
 
 	for _, slotID in ipairs(slots) do
-		local equippedItemID = GetInventoryItemID('player', slotID)
-		if equippedItemID then
-			local _, _, _, equippedIlvl = C_Item.GetItemInfo(equippedItemID)
+		local equippedLink = GetInventoryItemLink('player', slotID)
+		if equippedLink then
+			local equippedIlvl = C_Item.GetDetailedItemLevelInfo(equippedLink)
 			if equippedIlvl and item.itemLevel > equippedIlvl then
-				local equippedClassID = select(12, C_Item.GetItemInfo(equippedItemID))
-				if equippedClassID == item.classID then
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
+---@param item table
+---@return boolean
+function FilterSystem:IsInGearSet(item)
+	local setIDs = C_EquipmentSet.GetEquipmentSetIDs()
+	for _, setID in ipairs(setIDs) do
+		local itemIDs = C_EquipmentSet.GetItemIDs(setID)
+		if itemIDs then
+			for _, id in pairs(itemIDs) do
+				if id == item.itemID then
 					return true
 				end
 			end
 		end
 	end
-
 	return false
 end
 
----Get equipment slot IDs for equipment location
----@param equipLoc string
----@return table<number, number>|nil
-function FilterSystem:GetSlotsByEquipLoc(equipLoc)
-	local slotMap = {
-		['INVTYPE_HEAD'] = { 1 },
-		['INVTYPE_NECK'] = { 2 },
-		['INVTYPE_SHOULDER'] = { 3 },
-		['INVTYPE_BODY'] = { 4 },
-		['INVTYPE_CHEST'] = { 5 },
-		['INVTYPE_WAIST'] = { 6 },
-		['INVTYPE_LEGS'] = { 7 },
-		['INVTYPE_FEET'] = { 8 },
-		['INVTYPE_WRIST'] = { 9 },
-		['INVTYPE_HAND'] = { 10 },
-		['INVTYPE_FINGER'] = { 11, 12 },
-		['INVTYPE_TRINKET'] = { 13, 14 },
-		['INVTYPE_WEAPON'] = { 16, 17 },
-		['INVTYPE_SHIELD'] = { 17 },
-		['INVTYPE_RANGED'] = { 18 },
-		['INVTYPE_CLOAK'] = { 15 },
-		['INVTYPE_2HWEAPON'] = { 16, 17 },
-		['INVTYPE_WEAPONMAINHAND'] = { 16 },
-		['INVTYPE_WEAPONOFFHAND'] = { 17 },
-		['INVTYPE_HOLDABLE'] = { 17 },
-		['INVTYPE_THROWN'] = { 18 },
-		['INVTYPE_RANGEDRIGHT'] = { 18 },
-	}
-	return slotMap[equipLoc]
-end
-
----Check if item is part of an equipment set
 ---@param item table
 ---@return boolean
-function FilterSystem:IsInGearSet(item)
-	local numSets = C_EquipmentSet.GetNumEquipmentSets()
-	for i = 0, numSets - 1 do
-		local setID = C_EquipmentSet.GetEquipmentSetID(i)
-		if setID then
-			local itemLocations = C_EquipmentSet.GetItemLocations(setID)
-			for _, location in pairs(itemLocations) do
-				if location then
-					local player, bank, bags, voidStorage, slot, bag = EquipmentManager_UnpackLocation(location)
-					if bags and bag == item.bag and slot == item.slot then
-						return true
-					end
-				end
+function FilterSystem:IsWarbound(item)
+	local tooltipData = C_TooltipInfo.GetBagItem(item.bag, item.slot)
+	if not tooltipData then
+		return false
+	end
+
+	for _, line in ipairs(tooltipData.lines) do
+		if line.leftText then
+			if string.find(line.leftText, 'Warbound') then
+				return true
 			end
 		end
 	end
 	return false
 end
 
----Check if item is account bound (warbound)
----@param item table
----@return boolean
-function FilterSystem:IsWarbound(item)
-	local itemInfo = C_Container.GetContainerItemInfo(item.bag, item.slot)
-	return itemInfo and itemInfo.isBound
-end
-
----Check if item is Bind on Equip
 ---@param item table
 ---@return boolean
 function FilterSystem:IsBOE(item)
@@ -284,4 +192,31 @@ function FilterSystem:IsBOE(item)
 	return false
 end
 
-LibsDisenchantAssist.FilterSystem = FilterSystem
+---@param item table
+---@return boolean
+function FilterSystem:IsPawnUpgrade(item)
+	if not PawnIsReady or not PawnIsReady() then
+		return false
+	end
+	if not PawnGetItemData or not PawnIsItemAnUpgrade then
+		return false
+	end
+
+	local pawnItem = PawnGetItemData(item.itemLink)
+	if not pawnItem then
+		return false
+	end
+
+	local upgradeTable = PawnIsItemAnUpgrade(pawnItem)
+	if upgradeTable and #upgradeTable > 0 then
+		return true
+	end
+
+	return false
+end
+
+---@return number
+function FilterSystem:GetItemCount()
+	local items = self:GetFilteredItems()
+	return #items
+end

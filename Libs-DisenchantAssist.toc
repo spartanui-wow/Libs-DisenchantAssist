@@ -19,15 +19,4 @@
 ## Category-zhCN: 专业
 ## Category-zhTW: 專業技能
 
-# Core files
-Core.lua
-ItemTracker.lua
-FilterSystem.lua
-DisenchantLogic.lua
-
-# UI files
-UI\MainWindow.lua
-UI\OptionsPanel.lua
-
-# Main initialization
-Main.lua
+Load.xml

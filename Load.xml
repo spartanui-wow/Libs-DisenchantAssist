@@ -1,17 +1,21 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/..\FrameXML\UI.xsd">
 
+    <!-- Libraries -->
+    <Include file="libs\Ace3\Ace3.xml"/>
+    <Script file="libs\LibDataBroker\LibDataBroker-1.1.lua"/>
+    <Include file="libs\LibDBIcon-1.0\lib.xml"/>
+    <Include file="libs\LibSharedMedia-3.0\lib.xml"/>
+
     <!-- Core files -->
     <Script file="Core.lua"/>
-    <Script file="ItemTracker.lua"/>
+    <Script file="ItemScanner.lua"/>
     <Script file="FilterSystem.lua"/>
-    <Script file="DisenchantLogic.lua"/>
+    <Script file="DisenchantEngine.lua"/>
 
     <!-- UI files -->
+    <Script file="DataBroker.lua"/>
     <Script file="UI\MainWindow.lua"/>
-    <Script file="UI\OptionsPanel.lua"/>
-
-    <!-- Main initialization -->
-    <Script file="Main.lua"/>
+    <Script file="UI\Options.lua"/>
 
 </Ui>
