@@ -81,6 +81,7 @@ function DisenchantEngine:CreateSecureButton()
 	btn:SetScript('PostClick', function()
 		if self.state == STATE_PENDING_CLICK then
 			self:StartTimeout()
+			self:StartFailureDetection()
 		end
 	end)
 
@@ -196,6 +197,8 @@ function DisenchantEngine:ResetState()
 	self.currentItem = nil
 	self.itemQueue = {}
 	self:CancelTimeout()
+	self:CancelFailureDetection()
+	self:CancelSingleItemFailureDetection()
 	self:ClearButtonAttributes()
 end
 
@@ -230,6 +233,132 @@ function DisenchantEngine:OnTimeout()
 	end
 end
 
+function DisenchantEngine:StartFailureDetection()
+	self:CancelFailureDetection()
+	self.failureDetectionItem = self.currentItem
+	self.failureTimer = self:ScheduleTimer('CheckForSilentFailure', 2)
+end
+
+function DisenchantEngine:CancelFailureDetection()
+	if self.failureTimer then
+		self:CancelTimer(self.failureTimer)
+		self.failureTimer = nil
+	end
+	self.failureDetectionItem = nil
+end
+
+function DisenchantEngine:CheckForSilentFailure()
+	self.failureTimer = nil
+	local item = self.failureDetectionItem
+	self.failureDetectionItem = nil
+
+	if not item then
+		return
+	end
+
+	-- If we moved past PENDING_CLICK, the cast started fine
+	if self.state ~= STATE_PENDING_CLICK then
+		return
+	end
+
+	-- Check if the item is still in the bag
+	local containerInfo = C_Container.GetContainerItemInfo(item.bag, item.slot)
+	if not containerInfo or containerInfo.itemID ~= item.itemID then
+		return
+	end
+
+	-- Item is still there and no cast started - likely non-disenchantable
+	local itemID = item.itemID
+	local itemName = item.itemName or tostring(itemID)
+
+	if LibsDisenchantAssist:IsNonDisenchantable(itemID) then
+		return
+	end
+
+	if LibsDisenchantAssist.promptedNonDE[itemID] then
+		return
+	end
+	LibsDisenchantAssist.promptedNonDE[itemID] = true
+
+	self:Log('warning', itemName .. ' did not disenchant - prompting to blocklist')
+	self:ShowNonDEConfirmation(item)
+end
+
+function DisenchantEngine:ShowNonDEConfirmation(item)
+	local itemName = item.itemName or tostring(item.itemID)
+	local itemID = item.itemID
+
+	StaticPopupDialogs['LIBSDA_NON_DISENCHANTABLE'] = {
+		text = '|cffb048f8Disenchant Assist|r\n\n' .. item.itemLink .. ' did not disenchant.\n\nMark this item as non-disenchantable?\nIt will be hidden from future scans.',
+		button1 = 'Yes',
+		button2 = 'No',
+		OnAccept = function()
+			LibsDisenchantAssist:MarkNonDisenchantable(itemID, itemName)
+		end,
+		timeout = 30,
+		whileDead = true,
+		hideOnEscape = true,
+		preferredIndex = 3,
+	}
+	StaticPopup_Show('LIBSDA_NON_DISENCHANTABLE')
+
+	-- Skip this item in the queue and continue
+	self.state = STATE_IDLE
+	self.currentItem = nil
+	self:CancelTimeout()
+
+	if #self.itemQueue > 0 then
+		self:ScheduleTimer('PrepareNextDisenchant', 0.5)
+	else
+		LibsDisenchantAssist:SendMessage('DISENCHANT_ASSIST_QUEUE_COMPLETE', self.disenchantedCount, self.totalCount)
+	end
+end
+
+---@param item table
+function DisenchantEngine:StartSingleItemFailureDetection(item)
+	if not item then
+		return
+	end
+	self:CancelSingleItemFailureDetection()
+	self.singleItemFailureItem = item
+	self.singleItemFailureTimer = self:ScheduleTimer('CheckSingleItemFailure', 2)
+end
+
+function DisenchantEngine:CancelSingleItemFailureDetection()
+	if self.singleItemFailureTimer then
+		self:CancelTimer(self.singleItemFailureTimer)
+		self.singleItemFailureTimer = nil
+	end
+	self.singleItemFailureItem = nil
+end
+
+function DisenchantEngine:CheckSingleItemFailure()
+	self.singleItemFailureTimer = nil
+	local item = self.singleItemFailureItem
+	self.singleItemFailureItem = nil
+
+	if not item then
+		return
+	end
+
+	local containerInfo = C_Container.GetContainerItemInfo(item.bag, item.slot)
+	if not containerInfo or containerInfo.itemID ~= item.itemID then
+		return
+	end
+
+	local itemID = item.itemID
+	if LibsDisenchantAssist:IsNonDisenchantable(itemID) then
+		return
+	end
+	if LibsDisenchantAssist.promptedNonDE[itemID] then
+		return
+	end
+	LibsDisenchantAssist.promptedNonDE[itemID] = true
+
+	self:Log('warning', (item.itemName or tostring(itemID)) .. ' did not disenchant (single click) - prompting to blocklist')
+	self:ShowNonDEConfirmation(item)
+end
+
 function DisenchantEngine:OnSpellcastStart(_, unitID, _, spellID)
 	if unitID ~= 'player' then
 		return
@@ -242,6 +371,8 @@ function DisenchantEngine:OnSpellcastStart(_, unitID, _, spellID)
 	if spellID == LibsDisenchantAssist.DISENCHANT_SPELL_ID then
 		self.state = STATE_CASTING
 		self:CancelTimeout()
+		self:CancelFailureDetection()
+		self:CancelSingleItemFailureDetection()
 		self:Log('debug', 'Cast started for ' .. (self.currentItem.itemName or 'item'))
 		LibsDisenchantAssist:SendMessage('DISENCHANT_ASSIST_CASTING', self.currentItem)
 	end

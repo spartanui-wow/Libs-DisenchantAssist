@@ -253,6 +253,15 @@ function MainWindow:CreateItemRow(parent, index)
 		end
 	end)
 
+	deBtn:SetScript('PostClick', function()
+		if row.item then
+			local engine = LibsDisenchantAssist.DisenchantEngine
+			if engine and engine.StartSingleItemFailureDetection then
+				engine:StartSingleItemFailureDetection(row.item)
+			end
+		end
+	end)
+
 	deBtn:SetScript('OnEnter', function(btn)
 		GameTooltip:SetOwner(btn, 'ANCHOR_TOP')
 		GameTooltip:SetText('Click to disenchant this item', 1, 1, 1)

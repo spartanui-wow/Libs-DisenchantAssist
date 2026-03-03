@@ -64,6 +64,9 @@ local defaults = {
 		permanentIgnore = {},
 		minimap = { hide = true },
 	},
+	global = {
+		nonDisenchantable = {},
+	},
 }
 
 function LibsDisenchantAssist:OnInitialize()
@@ -75,9 +78,13 @@ function LibsDisenchantAssist:OnInitialize()
 
 	self.DB = self.db.profile ---@type LibsDisenchantAssistOptions
 	self.DBC = self.db.char ---@type LibsDisenchantAssistCharDB
+	self.DBG = self.db.global
 
 	-- Session-only ignore list (cleared on /rl)
 	self.sessionIgnore = {}
+
+	-- Track items we already prompted about this session (don't re-ask)
+	self.promptedNonDE = {}
 
 	-- Tracks whether modules are currently active
 	self.modulesActive = false
@@ -219,6 +226,9 @@ function LibsDisenchantAssist:IsItemIgnored(itemID)
 	if self.DBC.permanentIgnore[itemID] then
 		return true
 	end
+	if self.DBG.nonDisenchantable[itemID] then
+		return true
+	end
 	return false
 end
 
@@ -231,5 +241,21 @@ end
 ---@param itemID number
 function LibsDisenchantAssist:PermanentIgnoreItem(itemID)
 	self.DBC.permanentIgnore[itemID] = true
+	self:SendMessage('DISENCHANT_ASSIST_ITEMS_UPDATED')
+end
+
+---@param itemID number
+---@return boolean
+function LibsDisenchantAssist:IsNonDisenchantable(itemID)
+	return self.DBG.nonDisenchantable[itemID] == true
+end
+
+---@param itemID number
+---@param itemName string
+function LibsDisenchantAssist:MarkNonDisenchantable(itemID, itemName)
+	self.DBG.nonDisenchantable[itemID] = true
+	if self.logger then
+		self.logger.info('Marked as non-disenchantable: ' .. (itemName or tostring(itemID)))
+	end
 	self:SendMessage('DISENCHANT_ASSIST_ITEMS_UPDATED')
 end
