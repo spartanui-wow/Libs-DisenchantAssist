@@ -4,7 +4,9 @@
 ## Notes: Smart disenchanting assistant with advanced filtering and safety features
 ## IconTexture: Interface/Addons/Libs-DisenchantAssist/Logo-Icon
 ## Author: Wutname1s
-## OptionalDeps: SpartanUI
+## X-Curse-Project-ID: 1477202
+## X-Wago-ID: nGv755Nx
+## RequiredDeps: LibsAddonTools
 ## SavedVariables: LibsDisenchantAssistDB
 ## SavedVariablesPerCharacter: LibsDisenchantAssistCharDB
 ## Category: Professions
