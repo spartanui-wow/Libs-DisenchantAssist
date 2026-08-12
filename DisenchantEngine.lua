@@ -15,6 +15,8 @@ local STATE_WAITING_BAGS = 'WAITING_BAGS'
 function DisenchantEngine:OnInitialize()
 	self.state = STATE_IDLE
 	self.currentItem = nil
+	self.castingSpellID = nil
+	self.clickSent = false
 	self.itemQueue = {}
 	self.disenchantedCount = 0
 	self.totalCount = 0
@@ -80,6 +82,7 @@ function DisenchantEngine:CreateSecureButton()
 
 	btn:SetScript('PostClick', function()
 		if self.state == STATE_PENDING_CLICK then
+			self.clickSent = true
 			self:StartTimeout()
 			self:StartFailureDetection()
 		end
@@ -195,6 +198,8 @@ end
 function DisenchantEngine:ResetState()
 	self.state = STATE_IDLE
 	self.currentItem = nil
+	self.castingSpellID = nil
+	self.clickSent = false
 	self.itemQueue = {}
 	self:CancelTimeout()
 	self:CancelFailureDetection()
@@ -221,6 +226,8 @@ function DisenchantEngine:OnTimeout()
 		local hadItem = self.currentItem
 		self.state = STATE_IDLE
 		self.currentItem = nil
+		self.castingSpellID = nil
+		self.clickSent = false
 		self:CancelTimeout()
 
 		if #self.itemQueue > 0 then
@@ -258,6 +265,11 @@ function DisenchantEngine:CheckForSilentFailure()
 
 	-- If we moved past PENDING_CLICK, the cast started fine
 	if self.state ~= STATE_PENDING_CLICK then
+		return
+	end
+
+	-- A cast can be in flight without a spellcast event having reached us yet
+	if UnitCastingInfo('player') or UnitChannelInfo('player') then
 		return
 	end
 
@@ -305,6 +317,8 @@ function DisenchantEngine:ShowNonDEConfirmation(item)
 	-- Skip this item in the queue and continue
 	self.state = STATE_IDLE
 	self.currentItem = nil
+	self.castingSpellID = nil
+	self.clickSent = false
 	self:CancelTimeout()
 
 	if #self.itemQueue > 0 then
@@ -341,6 +355,10 @@ function DisenchantEngine:CheckSingleItemFailure()
 		return
 	end
 
+	if UnitCastingInfo('player') or UnitChannelInfo('player') then
+		return
+	end
+
 	local containerInfo = C_Container.GetContainerItemInfo(item.bag, item.slot)
 	if not containerInfo or containerInfo.itemID ~= item.itemID then
 		return
@@ -359,23 +377,27 @@ function DisenchantEngine:CheckSingleItemFailure()
 	self:ShowNonDEConfirmation(item)
 end
 
+-- CraftSalvage reports the cast under the salvage spell, not the base disenchant
+-- spell, so we cannot match on DISENCHANT_SPELL_ID. The click flag scopes this to
+-- the cast our own button triggered rather than anything the player casts.
 function DisenchantEngine:OnSpellcastStart(_, unitID, _, spellID)
 	if unitID ~= 'player' then
 		return
 	end
 
-	if self.state ~= STATE_PENDING_CLICK then
+	if self.state ~= STATE_PENDING_CLICK or not self.clickSent then
 		return
 	end
 
-	if spellID == LibsDisenchantAssist.DISENCHANT_SPELL_ID then
-		self.state = STATE_CASTING
-		self:CancelTimeout()
-		self:CancelFailureDetection()
-		self:CancelSingleItemFailureDetection()
-		self:Log('debug', 'Cast started for ' .. (self.currentItem.itemName or 'item'))
-		LibsDisenchantAssist:SendMessage('DISENCHANT_ASSIST_CASTING', self.currentItem)
-	end
+	self.clickSent = false
+	self.castingSpellID = spellID
+	self.state = STATE_CASTING
+	self:CancelTimeout()
+	self:CancelFailureDetection()
+	self:CancelSingleItemFailureDetection()
+	self:Log('debug', 'Cast started (spellID ' .. tostring(spellID) .. ') for ' .. (self.currentItem.itemName or 'item'))
+	LibsDisenchantAssist:SendMessage('DISENCHANT_ASSIST_CASTING', self.currentItem)
+	self:StartTimeout()
 end
 
 function DisenchantEngine:OnSpellcastSucceeded(_, unitID, _, spellID)
@@ -387,10 +409,12 @@ function DisenchantEngine:OnSpellcastSucceeded(_, unitID, _, spellID)
 		return
 	end
 
-	if spellID == LibsDisenchantAssist.DISENCHANT_SPELL_ID then
-		self:Log('debug', 'Cast succeeded for ' .. (self.currentItem.itemName or 'item'))
-		self:StartTimeout()
+	if self.castingSpellID and spellID ~= self.castingSpellID then
+		return
 	end
+
+	self:Log('debug', 'Cast succeeded for ' .. (self.currentItem and self.currentItem.itemName or 'item'))
+	self:StartTimeout()
 end
 
 function DisenchantEngine:OnSpellcastFailed(_, unitID)
@@ -411,6 +435,8 @@ function DisenchantEngine:OnDisenchantFailed()
 
 	self.state = STATE_IDLE
 	self.currentItem = nil
+	self.castingSpellID = nil
+	self.clickSent = false
 	self:CancelTimeout()
 
 	if #self.itemQueue > 0 then
@@ -469,6 +495,8 @@ function DisenchantEngine:OnBagUpdateDelayed()
 
 	self.state = STATE_IDLE
 	self.currentItem = nil
+	self.castingSpellID = nil
+	self.clickSent = false
 
 	if #self.itemQueue > 0 then
 		self:ScheduleTimer('PrepareNextDisenchant', 0.3)

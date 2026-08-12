@@ -8,6 +8,17 @@ LibsDisenchantAssist.ItemScanner = ItemScanner
 -- Item class IDs
 local WEAPON_CLASS = 2
 local ARMOR_CLASS = 4
+-- Profession tools and accessories are their own item class, but they
+-- disenchant like any other equippable green/blue/epic gear.
+local PROFESSION_CLASS = 19
+
+-- Equip slots that never disenchant, regardless of item class
+---@type table<string, boolean>
+local nonDisenchantableSlots = {
+	INVTYPE_TABARD = true,
+	INVTYPE_BODY = true,
+	INVTYPE_BAG = true,
+}
 
 -- Quality thresholds
 local QUALITY_UNCOMMON = 2
@@ -302,7 +313,7 @@ function ItemScanner:CreateItemInfo(bag, slot, containerInfo)
 		return nil
 	end
 
-	local itemName, _, itemQuality, _, _, _, _, _, equipLoc, _, _, classID, subClassID = C_Item.GetItemInfo(itemID)
+	local itemName, _, baseQuality, _, _, _, _, _, equipLoc, _, _, classID, subClassID = C_Item.GetItemInfo(itemID)
 	if not itemName then
 		return nil
 	end
@@ -311,6 +322,10 @@ function ItemScanner:CreateItemInfo(bag, slot, containerInfo)
 	-- C_Item.GetItemInfo returns the base/template ilvl which is often 100+ lower than real
 	local actualItemLevel = C_Item.GetDetailedItemLevelInfo(itemLink)
 	local itemLevel = actualItemLevel or 0
+
+	-- Same story for quality: the template value misses per-instance upgrades, so a
+	-- blue can read as epic. containerInfo carries the quality of this actual item.
+	local itemQuality = containerInfo.quality or baseQuality
 
 	if not self:IsDisenchantable(itemID, classID, itemQuality, itemLevel, equipLoc) then
 		return nil
@@ -349,7 +364,7 @@ function ItemScanner:IsDisenchantable(itemID, classID, quality, itemLevel, equip
 		return false
 	end
 
-	if classID ~= WEAPON_CLASS and classID ~= ARMOR_CLASS then
+	if classID ~= WEAPON_CLASS and classID ~= ARMOR_CLASS and classID ~= PROFESSION_CLASS then
 		return false
 	end
 
@@ -361,8 +376,12 @@ function ItemScanner:IsDisenchantable(itemID, classID, quality, itemLevel, equip
 		return false
 	end
 
-	-- Tabards and shirts cannot be disenchanted
-	if equipLoc == 'INVTYPE_TABARD' or equipLoc == 'INVTYPE_BODY' then
+	-- Only equippable gear disenchants; profession reagents share the tool item class
+	if not equipLoc or equipLoc == '' or equipLoc == 'INVTYPE_NON_EQUIP' then
+		return false
+	end
+
+	if nonDisenchantableSlots[equipLoc] then
 		return false
 	end
 
