@@ -29,7 +29,7 @@ Keep your important gear safe with built-in filters:
 | -------------------- | --------------------------------------------------------------- |
 | **Higher ilvl**      | Skips items stronger than what you have equipped                |
 | **Gear Sets**        | Skips items saved in your Equipment Sets                        |
-| **Warbound**         | Skips Warbound items                                            |
+| **Warbound**         | Skips Warbound items (Retail only)                              |
 | **Bind on Equip**    | Skips BoE items (so you can sell them instead)                  |
 | **Pawn Upgrades**    | Skips items Pawn says are an upgrade (if you use Pawn)          |
 | **Looted Today**     | Skips items you just picked up today                            |
@@ -68,7 +68,7 @@ All filters can be turned on or off in the settings panel.
 ## Good to Know
 
 - Only works on characters that know Enchanting
-- Handles both Retail and Classic disenchanting automatically
+- Works in Retail, WoW Forever, Classic Era, TBC Anniversary, Titan and Mists Classic, and picks the right way to disenchant for each
 - Remembers items that can't be disenchanted so it won't try them again
 - Works great alongside SpartanUI (options show up in the SUI menu)
 

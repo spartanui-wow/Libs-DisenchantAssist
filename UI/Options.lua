@@ -99,6 +99,9 @@ local function BuildOptionsTable()
 						desc = 'Skip warbound items',
 						type = 'toggle',
 						order = 4,
+						hidden = function()
+							return not LibsDisenchantAssist.IsRetail
+						end,
 						get = function()
 							return LibsDisenchantAssist.DB.excludeWarbound
 						end,

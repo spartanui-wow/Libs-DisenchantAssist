@@ -10,6 +10,12 @@ LibsDisenchantAssist:SetDefaultModuleState(false)
 -- Spell ID for disenchant
 LibsDisenchantAssist.DISENCHANT_SPELL_ID = 13262
 
+-- Flavor is decided by interface number, not WOW_PROJECT_ID: WoW Forever runs the modern client
+-- and reports a project id older code mistakes for Retail, but it plays by Classic rules, where
+-- Disenchant is an ordinary spell cast on a bag item rather than a salvage recipe.
+local _, _, _, tocVersion = GetBuildInfo()
+LibsDisenchantAssist.IsRetail = (tocVersion or 0) >= 110000
+
 -- Raw frame for profession detection events (lives outside Ace3 lifecycle)
 local professionFrame = CreateFrame('Frame')
 local trainerThrottleTimer = nil
@@ -214,7 +220,45 @@ end
 
 ---@return boolean
 function LibsDisenchantAssist:KnowsDisenchant()
-	return C_SpellBook.IsSpellInSpellBook(self.DISENCHANT_SPELL_ID)
+	if C_SpellBook and C_SpellBook.IsSpellInSpellBook and C_SpellBook.IsSpellInSpellBook(self.DISENCHANT_SPELL_ID) then
+		return true
+	end
+	return IsPlayerSpell and IsPlayerSpell(self.DISENCHANT_SPELL_ID) or false
+end
+
+-- Retail disenchanting is a salvage recipe with no spellbook slot, so it goes through
+-- C_TradeSkillUI.CraftSalvage in a macro. Everywhere else Disenchant is cast as a spell and the
+-- secure template aims it at the bag slot, which needs no macro text (some clients refuse it).
+---@param btn Button SecureActionButton
+---@param bag number
+---@param slot number
+function LibsDisenchantAssist:SetDisenchantAttributes(btn, bag, slot)
+	local spellID = self.DISENCHANT_SPELL_ID
+	local inSpellBook = FindSpellBookSlotBySpellID and FindSpellBookSlotBySpellID(spellID)
+	local canSalvage = self.IsRetail and C_TradeSkillUI and C_TradeSkillUI.CraftSalvage
+
+	if canSalvage and not inSpellBook then
+		btn:SetAttribute('type', 'macro')
+		btn:SetAttribute('macrotext', string.format('/run C_TradeSkillUI.CraftSalvage(%d, 1, ItemLocation:CreateFromBagAndSlot(%d, %d))', spellID, bag, slot))
+		btn:SetAttribute('spell', nil)
+		btn:SetAttribute('target-bag', nil)
+		btn:SetAttribute('target-slot', nil)
+	else
+		btn:SetAttribute('type', 'spell')
+		btn:SetAttribute('spell', spellID)
+		btn:SetAttribute('target-bag', bag)
+		btn:SetAttribute('target-slot', slot)
+		btn:SetAttribute('macrotext', nil)
+	end
+end
+
+---@param btn Button SecureActionButton
+function LibsDisenchantAssist:ClearDisenchantAttributes(btn)
+	btn:SetAttribute('type', nil)
+	btn:SetAttribute('macrotext', nil)
+	btn:SetAttribute('spell', nil)
+	btn:SetAttribute('target-bag', nil)
+	btn:SetAttribute('target-slot', nil)
 end
 
 ---@param itemID number

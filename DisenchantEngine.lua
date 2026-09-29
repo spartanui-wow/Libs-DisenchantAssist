@@ -23,13 +23,40 @@ function DisenchantEngine:OnInitialize()
 	self.timeoutTimer = nil
 
 	self:CreateSecureButton()
+	self:CreateSpellcastWatcher()
+end
+
+-- Spellcast events can carry a secret unit token for other units on modern clients, so even
+-- comparing it to 'player' can error. A unit event registration keeps other units' casts out.
+-- AceEvent has no unit registration, hence the dedicated frame.
+local SPELLCAST_HANDLERS = {
+	UNIT_SPELLCAST_START = 'OnSpellcastStart',
+	UNIT_SPELLCAST_SUCCEEDED = 'OnSpellcastSucceeded',
+	UNIT_SPELLCAST_FAILED = 'OnSpellcastFailed',
+	UNIT_SPELLCAST_INTERRUPTED = 'OnSpellcastFailed',
+}
+
+function DisenchantEngine:CreateSpellcastWatcher()
+	local watcher = CreateFrame('Frame')
+	watcher:SetScript('OnEvent', function(_, event, unit, ...)
+		if not watcher.unitFiltered and unit ~= 'player' then
+			return
+		end
+		self[SPELLCAST_HANDLERS[event]](self, event, 'player', ...)
+	end)
+	self.spellcastWatcher = watcher
 end
 
 function DisenchantEngine:OnEnable()
-	self:RegisterEvent('UNIT_SPELLCAST_START', 'OnSpellcastStart')
-	self:RegisterEvent('UNIT_SPELLCAST_SUCCEEDED', 'OnSpellcastSucceeded')
-	self:RegisterEvent('UNIT_SPELLCAST_FAILED', 'OnSpellcastFailed')
-	self:RegisterEvent('UNIT_SPELLCAST_INTERRUPTED', 'OnSpellcastFailed')
+	local watcher = self.spellcastWatcher
+	watcher.unitFiltered = watcher.RegisterUnitEvent ~= nil
+	for event in pairs(SPELLCAST_HANDLERS) do
+		if watcher.unitFiltered then
+			watcher:RegisterUnitEvent(event, 'player')
+		else
+			watcher:RegisterEvent(event)
+		end
+	end
 	self:RegisterEvent('LOOT_READY', 'OnLootReady')
 	self:RegisterEvent('LOOT_CLOSED', 'OnLootClosed')
 	self:RegisterEvent('BAG_UPDATE_DELAYED', 'OnBagUpdateDelayed')
@@ -39,6 +66,7 @@ end
 
 function DisenchantEngine:OnDisable()
 	self:UnregisterAllEvents()
+	self.spellcastWatcher:UnregisterAllEvents()
 	self:ResetState()
 end
 
@@ -56,15 +84,13 @@ function DisenchantEngine:CreateSecureButton()
 			if #items > 0 then
 				self:StartQueue(items)
 			else
-				btn:SetAttribute('type', 'macro')
-				btn:SetAttribute('macrotext', '')
+				LibsDisenchantAssist:ClearDisenchantAttributes(btn)
 				return
 			end
 		end
 
 		if self.state ~= STATE_PENDING_CLICK or not self.currentItem then
-			btn:SetAttribute('type', 'macro')
-			btn:SetAttribute('macrotext', '')
+			LibsDisenchantAssist:ClearDisenchantAttributes(btn)
 			return
 		end
 
@@ -72,8 +98,7 @@ function DisenchantEngine:CreateSecureButton()
 		local item = self.currentItem
 		local containerInfo = C_Container.GetContainerItemInfo(item.bag, item.slot)
 		if not containerInfo or containerInfo.itemID ~= item.itemID then
-			btn:SetAttribute('type', 'macro')
-			btn:SetAttribute('macrotext', '')
+			LibsDisenchantAssist:ClearDisenchantAttributes(btn)
 			self:Log('warning', 'Item moved or missing from bag ' .. item.bag .. ' slot ' .. item.slot)
 			self:OnDisenchantFailed()
 			return
@@ -150,42 +175,22 @@ function DisenchantEngine:PrepareNextDisenchant()
 	LibsDisenchantAssist:SendMessage('DISENCHANT_ASSIST_READY', nextItem)
 end
 
--- Retail trade skills (DE) don't have spellbook slots, so type=spell
--- with target-bag/slot won't work. Instead use C_TradeSkillUI.CraftSalvage() via macro.
--- If the spell IS in the spellbook (Classic), use the direct spell+target approach.
 -- Attributes must be set here (not in PreClick) so the secure framework can read them.
 function DisenchantEngine:SetButtonAttributes(item)
 	if InCombatLockdown() then
 		return
 	end
 
-	local spellID = LibsDisenchantAssist.DISENCHANT_SPELL_ID
 	local btn = self.secureButton
-
-	if FindSpellBookSlotBySpellID and FindSpellBookSlotBySpellID(spellID) then
-		btn:SetAttribute('type', 'spell')
-		btn:SetAttribute('spell', spellID)
-		btn:SetAttribute('target-bag', item.bag)
-		btn:SetAttribute('target-slot', item.slot)
-		self:Log('debug', 'Spell mode: spellID ' .. spellID .. ' on bag ' .. item.bag .. ' slot ' .. item.slot)
-	else
-		local macroText = string.format('/run C_TradeSkillUI.CraftSalvage(%d, 1, ItemLocation:CreateFromBagAndSlot(%d, %d))', spellID, item.bag, item.slot)
-		btn:SetAttribute('type', 'macro')
-		btn:SetAttribute('macrotext', macroText)
-		self:Log('debug', 'Macro mode: ' .. macroText)
-	end
+	LibsDisenchantAssist:SetDisenchantAttributes(btn, item.bag, item.slot)
+	self:Log('debug', 'Armed (' .. tostring(btn:GetAttribute('type')) .. ') for bag ' .. item.bag .. ' slot ' .. item.slot)
 end
 
 function DisenchantEngine:ClearButtonAttributes()
 	if InCombatLockdown() then
 		return
 	end
-	local btn = self.secureButton
-	btn:SetAttribute('type', 'macro')
-	btn:SetAttribute('macrotext', '')
-	btn:SetAttribute('spell', nil)
-	btn:SetAttribute('target-bag', nil)
-	btn:SetAttribute('target-slot', nil)
+	LibsDisenchantAssist:ClearDisenchantAttributes(self.secureButton)
 end
 
 function DisenchantEngine:Stop()
@@ -380,11 +385,7 @@ end
 -- CraftSalvage reports the cast under the salvage spell, not the base disenchant
 -- spell, so we cannot match on DISENCHANT_SPELL_ID. The click flag scopes this to
 -- the cast our own button triggered rather than anything the player casts.
-function DisenchantEngine:OnSpellcastStart(_, unitID, _, spellID)
-	if unitID ~= 'player' then
-		return
-	end
-
+function DisenchantEngine:OnSpellcastStart(_, _, _, spellID)
 	if self.state ~= STATE_PENDING_CLICK or not self.clickSent then
 		return
 	end
@@ -400,11 +401,7 @@ function DisenchantEngine:OnSpellcastStart(_, unitID, _, spellID)
 	self:StartTimeout()
 end
 
-function DisenchantEngine:OnSpellcastSucceeded(_, unitID, _, spellID)
-	if unitID ~= 'player' then
-		return
-	end
-
+function DisenchantEngine:OnSpellcastSucceeded(_, _, _, spellID)
 	if self.state ~= STATE_CASTING then
 		return
 	end
@@ -417,11 +414,7 @@ function DisenchantEngine:OnSpellcastSucceeded(_, unitID, _, spellID)
 	self:StartTimeout()
 end
 
-function DisenchantEngine:OnSpellcastFailed(_, unitID)
-	if unitID ~= 'player' then
-		return
-	end
-
+function DisenchantEngine:OnSpellcastFailed()
 	if self.state ~= STATE_PENDING_CLICK and self.state ~= STATE_CASTING then
 		return
 	end

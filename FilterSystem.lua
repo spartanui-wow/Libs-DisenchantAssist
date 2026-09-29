@@ -158,19 +158,51 @@ function FilterSystem:IsInGearSet(item)
 	return false
 end
 
----@param item table
----@return boolean
-function FilterSystem:IsWarbound(item)
-	local tooltipData = C_TooltipInfo.GetBagItem(item.bag, item.slot)
-	if not tooltipData then
-		return false
+local scanTooltip
+
+-- C_TooltipInfo.GetBagItem is missing on the Classic clients (WoW Forever has it), so those
+-- read the lines from a hidden tooltip instead.
+---@param bag number
+---@param slot number
+---@return string[]
+local function GetBagItemLines(bag, slot)
+	local lines = {}
+
+	if C_TooltipInfo and C_TooltipInfo.GetBagItem then
+		local tooltipData = C_TooltipInfo.GetBagItem(bag, slot)
+		if tooltipData and tooltipData.lines then
+			for _, line in ipairs(tooltipData.lines) do
+				if line.leftText then
+					table.insert(lines, line.leftText)
+				end
+			end
+		end
+		return lines
 	end
 
-	for _, line in ipairs(tooltipData.lines) do
-		if line.leftText then
-			if string.find(line.leftText, 'Warbound') then
-				return true
-			end
+	if not scanTooltip then
+		scanTooltip = CreateFrame('GameTooltip', 'LibsDAScanTooltip', nil, 'GameTooltipTemplate')
+	end
+	scanTooltip:SetOwner(WorldFrame, 'ANCHOR_NONE')
+	scanTooltip:SetBagItem(bag, slot)
+	for i = 1, scanTooltip:NumLines() do
+		local fontString = _G['LibsDAScanTooltipTextLeft' .. i]
+		local text = fontString and fontString:GetText()
+		if text then
+			table.insert(lines, text)
+		end
+	end
+	scanTooltip:Hide()
+	return lines
+end
+
+---@param item table
+---@param text string
+---@return boolean
+local function TooltipHasText(item, text)
+	for _, line in ipairs(GetBagItemLines(item.bag, item.slot)) do
+		if string.find(line, text, 1, true) then
+			return true
 		end
 	end
 	return false
@@ -178,18 +210,17 @@ end
 
 ---@param item table
 ---@return boolean
-function FilterSystem:IsBOE(item)
-	local tooltipData = C_TooltipInfo.GetBagItem(item.bag, item.slot)
-	if not tooltipData then
+function FilterSystem:IsWarbound(item)
+	if not LibsDisenchantAssist.IsRetail then
 		return false
 	end
+	return TooltipHasText(item, 'Warbound')
+end
 
-	for _, line in ipairs(tooltipData.lines) do
-		if line.leftText and string.find(line.leftText, 'Binds when equipped') then
-			return true
-		end
-	end
-	return false
+---@param item table
+---@return boolean
+function FilterSystem:IsBOE(item)
+	return TooltipHasText(item, ITEM_BIND_ON_EQUIP or 'Binds when equipped')
 end
 
 ---@param item table

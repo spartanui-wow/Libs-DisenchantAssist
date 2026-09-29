@@ -12,6 +12,67 @@ local WINDOW_HEIGHT = 550
 
 local DE_COLOR = { r = 0.6, g = 0.4, b = 1.0 }
 
+-- Older clients lack some modern atlases, and SetAtlas on a missing one draws nothing.
+---@param name string
+---@return boolean
+local function HasAtlas(name)
+	return C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name) ~= nil
+end
+
+-- Three-slice button art: atlases when the client has them, otherwise the classic panel
+-- button texture cut into the same left/center/right pieces.
+local BUTTON_ART = {
+	normal = {
+		atlas = { '128-RedButton-Left', '_128-RedButton-Center', '128-RedButton-Right' },
+		file = 'Interface\\Buttons\\UI-Panel-Button-Up',
+	},
+	pushed = {
+		atlas = { '128-RedButton-Left-Pressed', '_128-RedButton-Center-Pressed', '128-RedButton-Right-Pressed' },
+		file = 'Interface\\Buttons\\UI-Panel-Button-Down',
+	},
+}
+local FILE_SLICE_COORDS = {
+	{ 0, 0.09375, 0, 0.6875 },
+	{ 0.09375, 0.53125, 0, 0.6875 },
+	{ 0.53125, 0.625, 0, 0.6875 },
+}
+local FILE_EDGE_WIDTH = 12
+
+---@param btn Button
+---@param art table
+---@param leftWidth number
+---@param rightWidth number
+---@return Texture[] slices
+local function CreateButtonSlices(btn, art, leftWidth, rightWidth)
+	local useAtlas = HasAtlas(art.atlas[1])
+	if not useAtlas then
+		leftWidth, rightWidth = FILE_EDGE_WIDTH, FILE_EDGE_WIDTH
+	end
+
+	local slices = {}
+	for i = 1, 3 do
+		local tex = btn:CreateTexture(nil, 'BACKGROUND')
+		if useAtlas then
+			tex:SetAtlas(art.atlas[i])
+		else
+			tex:SetTexture(art.file)
+			tex:SetTexCoord(unpack(FILE_SLICE_COORDS[i]))
+		end
+		slices[i] = tex
+	end
+
+	local left, center, right = slices[1], slices[2], slices[3]
+	left:SetPoint('TOPLEFT')
+	left:SetPoint('BOTTOMLEFT')
+	left:SetWidth(leftWidth)
+	right:SetPoint('TOPRIGHT')
+	right:SetPoint('BOTTOMRIGHT')
+	right:SetWidth(rightWidth)
+	center:SetPoint('TOPLEFT', left, 'TOPRIGHT')
+	center:SetPoint('BOTTOMRIGHT', right, 'BOTTOMLEFT')
+	return slices
+end
+
 function MainWindow:OnInitialize()
 	self.window = nil
 	self.itemRows = {}
@@ -240,15 +301,13 @@ function MainWindow:CreateItemRow(parent, index)
 
 	deBtn:SetScript('PreClick', function()
 		if not row.item then
-			deBtn:SetAttribute('type', 'macro')
-			deBtn:SetAttribute('macrotext', '')
+			LibsDisenchantAssist:ClearDisenchantAttributes(deBtn)
 			return
 		end
 		local item = row.item
 		local containerInfo = C_Container.GetContainerItemInfo(item.bag, item.slot)
 		if not containerInfo or containerInfo.itemID ~= item.itemID then
-			deBtn:SetAttribute('type', 'macro')
-			deBtn:SetAttribute('macrotext', '')
+			LibsDisenchantAssist:ClearDisenchantAttributes(deBtn)
 			return
 		end
 	end)
@@ -274,9 +333,14 @@ function MainWindow:CreateItemRow(parent, index)
 	local ignoreBtn = CreateFrame('Button', nil, row)
 	ignoreBtn:SetSize(20, 20)
 	ignoreBtn:SetPoint('RIGHT', -4, 0)
-	ignoreBtn:SetNormalAtlas('common-icon-redx')
-	ignoreBtn:SetHighlightAtlas('common-icon-redx')
-	ignoreBtn:GetHighlightTexture():SetAlpha(0.5)
+	if HasAtlas('common-icon-redx') then
+		ignoreBtn:SetNormalAtlas('common-icon-redx')
+		ignoreBtn:SetHighlightAtlas('common-icon-redx')
+		ignoreBtn:GetHighlightTexture():SetAlpha(0.5)
+	else
+		ignoreBtn:SetNormalTexture('Interface\\Buttons\\UI-GroupLoot-Pass-Up')
+		ignoreBtn:SetHighlightTexture('Interface\\Buttons\\UI-GroupLoot-Pass-Highlight', 'ADD')
+	end
 
 	ignoreBtn:SetScript('OnClick', function(_, button)
 		if not row.item then
@@ -344,63 +408,31 @@ function MainWindow:CreateDisenchantButton()
 	local LEFT_WIDTH = 35
 	local RIGHT_WIDTH = 80
 
-	local normalLeft = secureBtn:CreateTexture(nil, 'BACKGROUND')
-	normalLeft:SetAtlas('128-RedButton-Left')
-	normalLeft:SetPoint('TOPLEFT')
-	normalLeft:SetPoint('BOTTOMLEFT')
-	normalLeft:SetWidth(LEFT_WIDTH)
-
-	local normalRight = secureBtn:CreateTexture(nil, 'BACKGROUND')
-	normalRight:SetAtlas('128-RedButton-Right')
-	normalRight:SetPoint('TOPRIGHT')
-	normalRight:SetPoint('BOTTOMRIGHT')
-	normalRight:SetWidth(RIGHT_WIDTH)
-
-	local normalCenter = secureBtn:CreateTexture(nil, 'BACKGROUND')
-	normalCenter:SetAtlas('_128-RedButton-Center')
-	normalCenter:SetPoint('TOPLEFT', normalLeft, 'TOPRIGHT')
-	normalCenter:SetPoint('BOTTOMRIGHT', normalRight, 'BOTTOMLEFT')
+	local normalSlices = CreateButtonSlices(secureBtn, BUTTON_ART.normal, LEFT_WIDTH, RIGHT_WIDTH)
+	local pushedSlices = CreateButtonSlices(secureBtn, BUTTON_ART.pushed, LEFT_WIDTH, RIGHT_WIDTH)
 
 	local highlightTex = secureBtn:CreateTexture(nil, 'HIGHLIGHT')
-	highlightTex:SetAtlas('128-RedButton-Highlight')
+	if HasAtlas('128-RedButton-Highlight') then
+		highlightTex:SetAtlas('128-RedButton-Highlight')
+	else
+		highlightTex:SetTexture('Interface\\Buttons\\UI-Panel-Button-Highlight')
+		highlightTex:SetTexCoord(0, 0.625, 0, 0.6875)
+	end
 	highlightTex:SetAllPoints()
 	highlightTex:SetBlendMode('ADD')
 
-	local pushedLeft = secureBtn:CreateTexture(nil, 'BACKGROUND')
-	pushedLeft:SetAtlas('128-RedButton-Left-Pressed')
-	pushedLeft:SetPoint('TOPLEFT')
-	pushedLeft:SetPoint('BOTTOMLEFT')
-	pushedLeft:SetWidth(LEFT_WIDTH)
-	pushedLeft:Hide()
-
-	local pushedRight = secureBtn:CreateTexture(nil, 'BACKGROUND')
-	pushedRight:SetAtlas('128-RedButton-Right-Pressed')
-	pushedRight:SetPoint('TOPRIGHT')
-	pushedRight:SetPoint('BOTTOMRIGHT')
-	pushedRight:SetWidth(RIGHT_WIDTH)
-	pushedRight:Hide()
-
-	local pushedCenter = secureBtn:CreateTexture(nil, 'BACKGROUND')
-	pushedCenter:SetAtlas('_128-RedButton-Center-Pressed')
-	pushedCenter:SetPoint('TOPLEFT', pushedLeft, 'TOPRIGHT')
-	pushedCenter:SetPoint('BOTTOMRIGHT', pushedRight, 'BOTTOMLEFT')
-	pushedCenter:Hide()
-
+	local function ShowPushed(pushed)
+		for i = 1, 3 do
+			normalSlices[i]:SetShown(not pushed)
+			pushedSlices[i]:SetShown(pushed)
+		end
+	end
+	ShowPushed(false)
 	secureBtn:HookScript('OnMouseDown', function()
-		normalLeft:Hide()
-		normalCenter:Hide()
-		normalRight:Hide()
-		pushedLeft:Show()
-		pushedCenter:Show()
-		pushedRight:Show()
+		ShowPushed(true)
 	end)
 	secureBtn:HookScript('OnMouseUp', function()
-		pushedLeft:Hide()
-		pushedCenter:Hide()
-		pushedRight:Hide()
-		normalLeft:Show()
-		normalCenter:Show()
-		normalRight:Show()
+		ShowPushed(false)
 	end)
 
 	secureBtn.Text = secureBtn:CreateFontString(nil, 'OVERLAY', 'GameFontNormalLarge')
@@ -463,7 +495,9 @@ function MainWindow:PopulateSettingsPanel(panel)
 	yPos = yPos - 22
 
 	AddCheckbox('Exclude gear sets', 'excludeGearSets', 10, yPos)
-	AddCheckbox('Exclude warbound', 'excludeWarbound', 210, yPos)
+	if LibsDisenchantAssist.IsRetail then
+		AddCheckbox('Exclude warbound', 'excludeWarbound', 210, yPos)
+	end
 	yPos = yPos - 22
 
 	AddCheckbox('Exclude BOE', 'excludeBOE', 10, yPos)
@@ -658,27 +692,12 @@ end
 ---@param btn Button SecureActionButton on the row
 ---@param item table Item data with bag, slot
 function MainWindow:SetRowButtonAttributes(btn, item)
-	local spellID = LibsDisenchantAssist.DISENCHANT_SPELL_ID
-
-	if FindSpellBookSlotBySpellID and FindSpellBookSlotBySpellID(spellID) then
-		btn:SetAttribute('type', 'spell')
-		btn:SetAttribute('spell', spellID)
-		btn:SetAttribute('target-bag', item.bag)
-		btn:SetAttribute('target-slot', item.slot)
-	else
-		local macroText = string.format('/run C_TradeSkillUI.CraftSalvage(%d, 1, ItemLocation:CreateFromBagAndSlot(%d, %d))', spellID, item.bag, item.slot)
-		btn:SetAttribute('type', 'macro')
-		btn:SetAttribute('macrotext', macroText)
-	end
+	LibsDisenchantAssist:SetDisenchantAttributes(btn, item.bag, item.slot)
 end
 
 ---@param btn Button SecureActionButton on the row
 function MainWindow:ClearRowButtonAttributes(btn)
-	btn:SetAttribute('type', 'macro')
-	btn:SetAttribute('macrotext', '')
-	btn:SetAttribute('spell', nil)
-	btn:SetAttribute('target-bag', nil)
-	btn:SetAttribute('target-slot', nil)
+	LibsDisenchantAssist:ClearDisenchantAttributes(btn)
 end
 
 function MainWindow:UpdateDisenchantButton()
