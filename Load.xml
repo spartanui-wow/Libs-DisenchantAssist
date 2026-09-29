@@ -12,6 +12,7 @@
     <Script file="ItemScanner.lua"/>
     <Script file="FilterSystem.lua"/>
     <Script file="DisenchantEngine.lua"/>
+    <Script file="Setup.lua"/>
 
     <!-- UI files -->
     <Script file="DataBroker.lua"/>

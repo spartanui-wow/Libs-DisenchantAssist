@@ -76,6 +76,9 @@ local defaults = {
 }
 
 function LibsDisenchantAssist:OnInitialize()
+	-- Before the database exists, so Setup can spot a new install
+	self:RegisterSetup()
+
 	self.db = LibStub('AceDB-3.0'):New('LibsDisenchantAssistDB', defaults, true)
 
 	self.db.RegisterCallback(self, 'OnProfileChanged', 'OnProfileChanged')
