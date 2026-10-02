@@ -27,57 +27,36 @@ function LibsDisenchantAssist:RegisterSetup()
 		return
 	end
 
+	-- One question for enchanters: how much it may break down. Each answer also says what stays safe.
+	-- Characters without Enchanting are not asked; the addon waits for one that has it.
+	local LEVELS = {
+		[2] = { excludeHigherIlvl = true, excludeGearSets = true, excludeBOE = true },
+		[3] = { excludeHigherIlvl = true, excludeGearSets = true, excludeBOE = false },
+		[4] = { excludeHigherIlvl = true, excludeGearSets = true, excludeBOE = false },
+	}
 	reg:AddStep({
 		id = 'quality',
 		kind = 'choice',
-		name = 'Best gear to break',
-		title = 'What is the best gear it may break down?',
-		text = 'This only matters on characters who know Enchanting. You can change it later.',
+		name = 'What it breaks down',
+		title = 'What gear may it break down?',
+		text = 'Gear better than what you wear and gear in your equipment sets is always kept. Fine-tune with /de options.',
+		hidden = function()
+			return not LibsDisenchantAssist:KnowsDisenchant()
+		end,
 		choices = {
-			{ value = 2, title = 'Green only', caption = 'Only green (Uncommon) gear is broken down.' },
-			{ value = 3, title = 'Up to blue', caption = 'Green and blue (Rare) gear is broken down.' },
-			{ value = 4, title = 'Up to purple', caption = 'Green, blue and purple (Epic) gear is broken down.', recommended = true },
+			{ value = 2, title = 'Green only', caption = 'Also keeps Bind on Equip gear you could sell.' },
+			{ value = 3, title = 'Green and blue', caption = 'Uncommon and Rare gear.' },
+			{ value = 4, title = 'Green, blue and purple', caption = 'Uncommon, Rare and Epic gear.', recommended = true },
 		},
 		get = function()
 			return LibsDisenchantAssist.db.profile.deMaxQuality
 		end,
 		set = function(value)
-			LibsDisenchantAssist.db.profile.deMaxQuality = value
-			SettingsChanged()
-		end,
-	})
-
-	reg:AddStep({
-		id = 'keep',
-		kind = 'toggles',
-		name = 'Keep safe',
-		title = 'Which gear should it keep safe?',
-		text = 'Kept gear stays in your bags and is never broken down.',
-		items = {
-			{
-				key = 'excludeHigherIlvl',
-				title = 'Better than what you wear',
-				caption = 'Keeps gear with a higher item level than yours.',
-				recommended = true,
-			},
-			{
-				key = 'excludeGearSets',
-				title = 'Gear in your equipment sets',
-				caption = 'Keeps anything saved in an equipment set.',
-				recommended = true,
-			},
-			{
-				key = 'excludeBOE',
-				title = 'Gear you could sell',
-				caption = 'Keeps Bind on Equip gear, so you can sell it or give it away.',
-				recommended = false,
-			},
-		},
-		get = function(key)
-			return LibsDisenchantAssist.db.profile[key] and true or false
-		end,
-		set = function(key, value)
-			LibsDisenchantAssist.db.profile[key] = value
+			local profile = LibsDisenchantAssist.db.profile
+			profile.deMaxQuality = value
+			for key, keep in pairs(LEVELS[value] or {}) do
+				profile[key] = keep
+			end
 			SettingsChanged()
 		end,
 	})
