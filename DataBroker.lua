@@ -23,7 +23,6 @@ function DataBroker:OnEnable()
 	self:RegisterLDB()
 	self:RegisterMessage('DISENCHANT_ASSIST_ITEMS_UPDATED', 'UpdateText')
 	self:RegisterMessage('DISENCHANT_ASSIST_ITEM_DESTROYED', 'UpdateText')
-	self:RegisterMessage('DISENCHANT_ASSIST_QUEUE_COMPLETE', 'UpdateText')
 	self:RegisterMessage('DISENCHANT_ASSIST_PROFILE_CHANGED', 'UpdateText')
 end
 
@@ -67,6 +66,11 @@ function DataBroker:RegisterLDB()
 				tooltip:AddDoubleLine('Disenchantable', tostring(count), 1, 1, 1, 0.5, 1, 0.5)
 			else
 				tooltip:AddLine('|cff888888No items to disenchant|r')
+			end
+
+			local key = LibsDisenchantAssist:GetKeyText(LibsDisenchantAssist:GetNextKey())
+			if key then
+				tooltip:AddDoubleLine('Disenchant next', key, 1, 1, 1, 0.5, 1, 0.5)
 			end
 
 			tooltip:AddLine(' ')

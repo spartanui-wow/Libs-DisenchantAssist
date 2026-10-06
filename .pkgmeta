@@ -7,5 +7,6 @@ manual-changelog:
 ignore:
   - "*.md"
   - "*.Definition.lua"
+  - Tests
 
 enable-nolib-creation: no

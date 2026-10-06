@@ -10,6 +10,9 @@ LibsDisenchantAssist:SetDefaultModuleState(false)
 -- Spell ID for disenchant
 LibsDisenchantAssist.DISENCHANT_SPELL_ID = 13262
 
+-- The secure button key bindings and macros press (/click LibsDENext)
+LibsDisenchantAssist.NEXT_BUTTON_NAME = 'LibsDENext'
+
 -- Flavor is decided by interface number, not WOW_PROJECT_ID: WoW Forever runs the modern client
 -- and reports a project id older code mistakes for Retail, but it plays by Classic rules, where
 -- Disenchant is an ordinary spell cast on a bag item rather than a salvage recipe.
@@ -163,14 +166,21 @@ function LibsDisenchantAssist:RegisterChatCommands()
 	end
 end
 
+---Tell the player something in chat (and keep it in the log)
+---@param msg string
+function LibsDisenchantAssist:Say(msg)
+	self:Print(msg)
+	if self.logger then
+		self.logger.info(msg)
+	end
+end
+
 ---@param msg string
 function LibsDisenchantAssist:HandleChatCommand(msg)
 	local command = string.lower(string.trim(msg or ''))
 
 	if not self.modulesActive then
-		if self.logger then
-			self.logger.info('Disenchant Assist is inactive - this character does not know Enchanting')
-		end
+		self:Say('Inactive - this character does not know Enchanting.')
 		return
 	end
 
@@ -190,34 +200,34 @@ function LibsDisenchantAssist:HandleChatCommand(msg)
 		if self.ItemScanner then
 			self.ItemScanner:ScanBagsForNewItems()
 			self:SendMessage('DISENCHANT_ASSIST_ITEMS_UPDATED')
-			if self.logger then
-				self.logger.info('Manual bag scan complete')
-			end
+			self:Say('Bags scanned.')
 		end
-	elseif command == 'stop' then
-		if self.DisenchantEngine then
-			self.DisenchantEngine:Stop()
+	elseif command == 'macro' then
+		if self:PickupNextMacro() then
+			self:Say('Drop the macro on an action bar. Each press disenchants one item.')
 		end
+	elseif command == 'next' or command == 'key' then
+		-- A slash command runs as addon code, which the game does not let cast. The /click line
+		-- is run by the game itself, so that is what works from a macro.
+		local key = self:GetKeyText(self:GetNextKey())
+		self:Say('The game needs one press per item. Ways to press "disenchant next":')
+		self:Say('- Key: ' .. (key or 'not set') .. '. Set it in the window, or in Key Bindings > AddOns.')
+		self:Say('- Macro: ' .. self.MACRO_BODY .. '  (/de macro puts one on your cursor for an action bar)')
 	elseif command == 'options' or command == 'settings' then
 		if self.MainWindow then
 			self.MainWindow:Show()
 			self.MainWindow:ShowSettings()
 		end
 	elseif command == 'help' then
-		if self.logger then
-			self.logger.info('Commands:')
-			self.logger.info('/disenchant - Open main window')
-			self.logger.info('/disenchant hide - Hide main window')
-			self.logger.info('/disenchant toggle - Toggle main window')
-			self.logger.info('/disenchant scan - Rescan bags')
-			self.logger.info('/disenchant stop - Stop current disenchant queue')
-			self.logger.info('/disenchant settings - Open settings')
-			self.logger.info('/disenchant help - Show this help')
-		end
+		self:Say('Commands:')
+		self:Say('/de - Open the window')
+		self:Say('/de hide, /de toggle - Hide or toggle the window')
+		self:Say('/de scan - Rescan your bags')
+		self:Say('/de macro - Put a "disenchant next" macro on your cursor for an action bar')
+		self:Say('/de next - How to disenchant with a key or a macro')
+		self:Say('/de settings - Open settings')
 	else
-		if self.logger then
-			self.logger.warning('Unknown command: ' .. command .. ". Use '/disenchant help'")
-		end
+		self:Say('Unknown command: ' .. command .. ". Type '/de help'")
 	end
 end
 
@@ -301,8 +311,6 @@ end
 ---@param itemName string
 function LibsDisenchantAssist:MarkNonDisenchantable(itemID, itemName)
 	self.DBG.nonDisenchantable[itemID] = true
-	if self.logger then
-		self.logger.info('Marked as non-disenchantable: ' .. (itemName or tostring(itemID)))
-	end
+	self:Say((itemName or tostring(itemID)) .. ' cannot be disenchanted, so it is hidden from the list now.')
 	self:SendMessage('DISENCHANT_ASSIST_ITEMS_UPDATED')
 end

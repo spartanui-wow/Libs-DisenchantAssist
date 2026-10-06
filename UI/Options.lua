@@ -190,11 +190,50 @@ local function BuildOptionsTable()
 					},
 				},
 			},
+			shortcuts = {
+				name = 'Disenchant Without the Window',
+				type = 'group',
+				inline = true,
+				order = 4,
+				args = {
+					about = {
+						name = 'The game needs one click or key press for every item. A key or an action bar button lets you keep pressing the same spot.',
+						type = 'description',
+						order = 1,
+						width = 'full',
+					},
+					key = {
+						name = 'Disenchant Next Key',
+						desc = 'Each press disenchants the next item, even with the window closed. The mouse wheel works too.',
+						type = 'keybinding',
+						order = 2,
+						get = function()
+							return LibsDisenchantAssist:GetNextKey() or ''
+						end,
+						set = function(_, key)
+							if key == nil or key == '' then
+								LibsDisenchantAssist:ClearNextKey()
+							elseif LibsDisenchantAssist.MainWindow then
+								LibsDisenchantAssist.MainWindow:BindKey(key)
+							end
+						end,
+					},
+					macro = {
+						name = 'Action Bar Button',
+						desc = 'Puts a "disenchant next" macro on your cursor. Drop it on an action bar.',
+						type = 'execute',
+						order = 3,
+						func = function()
+							LibsDisenchantAssist:PickupNextMacro()
+						end,
+					},
+				},
+			},
 			actions = {
 				name = '',
 				type = 'group',
 				inline = true,
-				order = 4,
+				order = 5,
 				args = {
 					showUI = {
 						name = 'Open Window',

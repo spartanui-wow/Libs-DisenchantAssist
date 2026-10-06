@@ -10,16 +10,24 @@ A smart disenchanting helper for Enchanters. Scans your bags, filters out gear y
 
 - Finds all disenchantable gear in your bags
 - Filters out items you want to keep (upgrades, gear sets, high ilvl, and more)
-- Disenchant one item at a time or process your whole bag at once
+- Disenchant the next item with one click, one key press, or one action bar button
 - Auto-loots the materials for you
-- Pauses during combat and picks up where it left off
+- Waits while you are in combat
 
 ## How It Works
 
 1. Open the window with `/de` or the minimap button
 2. Your bags are scanned and filtered automatically
-3. Click "Disenchant All" to process everything, or click the DE button on a single item
-4. Sit back and watch your bag fill with enchanting materials!
+3. Click "Disenchant next" to break down the next item, or click the DE button on a single item
+4. Keep clicking (or pressing your key) until the list is empty
+
+The game needs a separate click or key press for every item, so no addon can disenchant your whole bag from one click. You can keep pressing the same spot as fast as you like: a press while an item is still being disenchanted is simply ignored.
+
+## Disenchant Without the Window
+
+- **Key**: click "Set a key" in the window and press any key or turn the mouse wheel. You can also set it in the game's Key Bindings, under AddOns.
+- **Action bar**: drag the disenchant icon (or the big button) onto an action bar. This makes a macro named "DE Next".
+- **Your own macro**: add the line `/click LibsDENext`.
 
 ## Filters
 
@@ -56,7 +64,8 @@ All filters can be turned on or off in the settings panel.
 | `/de` or `/disenchant` | Open the main window              |
 | `/de toggle`           | Toggle the window                 |
 | `/de scan`             | Rescan your bags                  |
-| `/de stop`             | Stop the current disenchant queue |
+| `/de macro`            | Put the "DE Next" macro on your cursor |
+| `/de next`             | Show your key and the macro line  |
 | `/de options`          | Open settings                     |
 
 ## Minimap Button

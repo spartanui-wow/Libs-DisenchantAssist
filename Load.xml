@@ -9,6 +9,7 @@
 
     <!-- Core files -->
     <Script file="Core.lua"/>
+    <Script file="Shortcuts.lua"/>
     <Script file="ItemScanner.lua"/>
     <Script file="FilterSystem.lua"/>
     <Script file="DisenchantEngine.lua"/>

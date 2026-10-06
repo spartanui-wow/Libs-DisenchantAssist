@@ -82,13 +82,14 @@ end
 
 function MainWindow:OnEnable()
 	self:RegisterMessage('DISENCHANT_ASSIST_ITEMS_UPDATED', 'ScheduleRefresh')
-	self:RegisterMessage('DISENCHANT_ASSIST_READY', 'OnEngineReady')
 	self:RegisterMessage('DISENCHANT_ASSIST_CASTING', 'OnEngineCasting')
 	self:RegisterMessage('DISENCHANT_ASSIST_ITEM_DESTROYED', 'OnItemDestroyed')
-	self:RegisterMessage('DISENCHANT_ASSIST_QUEUE_COMPLETE', 'OnQueueComplete')
-	self:RegisterMessage('DISENCHANT_ASSIST_STOPPED', 'OnQueueStopped')
+	self:RegisterMessage('DISENCHANT_ASSIST_CAST_FAILED', 'OnCastFailed')
+	self:RegisterMessage('DISENCHANT_ASSIST_BLOCKED', 'OnBlocked')
 	self:RegisterMessage('DISENCHANT_ASSIST_PAUSED', 'OnQueuePaused')
 	self:RegisterMessage('DISENCHANT_ASSIST_PROFILE_CHANGED', 'ScheduleRefresh')
+	self:RegisterMessage('DISENCHANT_ASSIST_KEY_CHANGED', 'UpdateKeyButton')
+	self:RegisterEvent('UPDATE_BINDINGS', 'UpdateKeyButton')
 	self:RegisterEvent('PLAYER_REGEN_ENABLED', 'ScheduleRefresh')
 end
 
@@ -281,7 +282,11 @@ function MainWindow:CreateItemRow(parent, index)
 	name:SetJustifyH('LEFT')
 	name:SetWordWrap(false)
 	row.Name = name
-	deBtn:RegisterForClicks('AnyUp', 'AnyDown')
+
+	local engine = LibsDisenchantAssist.DisenchantEngine
+	engine:SetupSecureButton(deBtn, function()
+		return engine:IsUsable(row.item) and row.item or nil
+	end)
 
 	local deBtnBg = deBtn:CreateTexture(nil, 'BACKGROUND')
 	deBtnBg:SetAllPoints()
@@ -298,28 +303,6 @@ function MainWindow:CreateItemRow(parent, index)
 	deBtn.Text:SetText('DE')
 	deBtn.Text:SetTextColor(DE_COLOR.r, DE_COLOR.g, DE_COLOR.b)
 	row.TypeButton = deBtn
-
-	deBtn:SetScript('PreClick', function()
-		if not row.item then
-			LibsDisenchantAssist:ClearDisenchantAttributes(deBtn)
-			return
-		end
-		local item = row.item
-		local containerInfo = C_Container.GetContainerItemInfo(item.bag, item.slot)
-		if not containerInfo or containerInfo.itemID ~= item.itemID then
-			LibsDisenchantAssist:ClearDisenchantAttributes(deBtn)
-			return
-		end
-	end)
-
-	deBtn:SetScript('PostClick', function()
-		if row.item then
-			local engine = LibsDisenchantAssist.DisenchantEngine
-			if engine and engine.StartSingleItemFailureDetection then
-				engine:StartSingleItemFailureDetection(row.item)
-			end
-		end
-	end)
 
 	deBtn:SetScript('OnEnter', function(btn)
 		GameTooltip:SetOwner(btn, 'ANCHOR_TOP')
@@ -390,17 +373,36 @@ end
 function MainWindow:CreateStatusBar()
 	self.statusText = self.window:CreateFontString(nil, 'ARTWORK', 'GameFontNormalSmall')
 	self.statusText:SetPoint('BOTTOMLEFT', 15, 75)
+	self.statusText:SetJustifyH('LEFT')
+	self.statusText:SetWordWrap(false)
 	self.statusText:SetTextColor(0.8, 0.8, 0.8, 1)
-	self.statusText:SetText('Ready')
+	self.statusText:SetText('')
+end
+
+---@param owner Frame
+local function ShowShortcutTooltip(owner)
+	local key = LibsDisenchantAssist:GetKeyText(LibsDisenchantAssist:GetNextKey())
+	GameTooltip:AddLine(' ')
+	GameTooltip:AddLine('Faster ways to press it:', 1, 0.82, 0)
+	if key then
+		GameTooltip:AddLine('Your key: ' .. key, 1, 1, 1)
+	else
+		GameTooltip:AddLine('Set a key with the button above.', 0.8, 0.8, 0.8)
+	end
+	GameTooltip:AddLine('Drag it to an action bar to make a button there.', 0.8, 0.8, 0.8)
+	GameTooltip:AddLine('Macro line: ' .. LibsDisenchantAssist.MACRO_BODY, 0.8, 0.8, 0.8)
 end
 
 function MainWindow:CreateDisenchantButton()
 	local engine = LibsDisenchantAssist.DisenchantEngine
 	local secureBtn = engine:GetSecureButton()
 
+	local dragIcon = self:CreateMacroIcon()
+	dragIcon:SetPoint('BOTTOMLEFT', self.window, 'BOTTOMLEFT', 15, 30)
+
 	secureBtn:SetParent(self.window)
 	secureBtn:ClearAllPoints()
-	secureBtn:SetPoint('BOTTOMLEFT', self.window, 'BOTTOMLEFT', 15, 30)
+	secureBtn:SetPoint('BOTTOMLEFT', dragIcon, 'BOTTOMRIGHT', 6, 0)
 	secureBtn:SetPoint('BOTTOMRIGHT', self.window, 'BOTTOMRIGHT', -15, 30)
 	secureBtn:SetHeight(36)
 	secureBtn:Show()
@@ -435,12 +437,242 @@ function MainWindow:CreateDisenchantButton()
 		ShowPushed(false)
 	end)
 
+	-- Dragging the button itself puts the same "disenchant next" action on the cursor
+	secureBtn:RegisterForDrag('LeftButton')
+	secureBtn:SetScript('OnDragStart', function()
+		ShowPushed(false)
+		self:PickupMacro()
+	end)
+
+	secureBtn:SetScript('OnEnter', function(btn)
+		GameTooltip:SetOwner(btn, 'ANCHOR_TOP')
+		GameTooltip:SetText('Disenchant next', 1, 1, 1)
+		GameTooltip:AddLine('Each press disenchants one item. The game needs a separate click or key press for every item.', 0.8, 0.8, 0.8, true)
+		ShowShortcutTooltip(btn)
+		GameTooltip:Show()
+	end)
+	secureBtn:SetScript('OnLeave', function()
+		GameTooltip:Hide()
+	end)
+
 	secureBtn.Text = secureBtn:CreateFontString(nil, 'OVERLAY', 'GameFontNormalLarge')
-	secureBtn.Text:SetPoint('CENTER')
-	secureBtn.Text:SetText('Click to Disenchant')
+	secureBtn.Text:SetPoint('LEFT', LEFT_WIDTH * 0.5, 0)
+	secureBtn.Text:SetPoint('RIGHT', -LEFT_WIDTH * 0.5, 0)
+	secureBtn.Text:SetWordWrap(false)
+	secureBtn.Text:SetText('Disenchant next')
 	secureBtn.Text:SetTextColor(1, 1, 1, 1)
 
 	self.disenchantButton = secureBtn
+
+	self:CreateKeyButton()
+end
+
+---The icon left of the big button: drag or click it to get a "disenchant next" action bar button.
+---@return Button
+function MainWindow:CreateMacroIcon()
+	local icon = CreateFrame('Button', nil, self.window)
+	icon:SetSize(36, 36)
+	icon:RegisterForDrag('LeftButton')
+
+	local texture = icon:CreateTexture(nil, 'ARTWORK')
+	texture:SetAllPoints()
+	texture:SetTexture('Interface\\Icons\\INV_Enchant_Disenchant')
+	texture:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+
+	local highlight = icon:CreateTexture(nil, 'HIGHLIGHT')
+	highlight:SetAllPoints()
+	highlight:SetColorTexture(1, 1, 1, 0.2)
+
+	icon:SetScript('OnClick', function()
+		self:PickupMacro()
+	end)
+	icon:SetScript('OnDragStart', function()
+		self:PickupMacro()
+	end)
+	icon:SetScript('OnEnter', function(btn)
+		GameTooltip:SetOwner(btn, 'ANCHOR_TOP')
+		GameTooltip:SetText('Put it on an action bar', 1, 1, 1)
+		GameTooltip:AddLine('Drag this to an action bar. That button then disenchants the next item, the same as the big button, even with this window closed.', 0.8, 0.8, 0.8, true)
+		GameTooltip:Show()
+	end)
+	icon:SetScript('OnLeave', function()
+		GameTooltip:Hide()
+	end)
+
+	self.macroIcon = icon
+	return icon
+end
+
+function MainWindow:PickupMacro()
+	if InCombatLockdown() then
+		self:SetStatus('Not in combat. Try again after the fight.')
+		return
+	end
+	if LibsDisenchantAssist:PickupNextMacro() then
+		self:SetStatus('Drop it on an action bar.')
+	end
+end
+
+-- Keys the capture ignores: the mouse buttons that click the key button, and lone modifiers
+local IGNORED_KEYS = {
+	LeftButton = true,
+	RightButton = true,
+	BUTTON1 = true,
+	BUTTON2 = true,
+	UNKNOWN = true,
+	LSHIFT = true,
+	RSHIFT = true,
+	LCTRL = true,
+	RCTRL = true,
+	LALT = true,
+	RALT = true,
+	LMETA = true,
+	RMETA = true,
+}
+
+local MOUSE_BUTTON_KEYS = {
+	MiddleButton = 'BUTTON3',
+	Button4 = 'BUTTON4',
+	Button5 = 'BUTTON5',
+}
+
+---The binding name for a key plus the modifiers held right now, as SetBinding wants it
+---@param key string
+---@return string
+local function WithModifiers(key)
+	if IsShiftKeyDown() then
+		key = 'SHIFT-' .. key
+	end
+	if IsControlKeyDown() then
+		key = 'CTRL-' .. key
+	end
+	if IsAltKeyDown() then
+		key = 'ALT-' .. key
+	end
+	if IsMetaKeyDown and IsMetaKeyDown() then
+		key = 'META-' .. key
+	end
+	return key
+end
+
+---The "Key:" button: click it and press a key (or the mouse wheel) to bind "disenchant next".
+function MainWindow:CreateKeyButton()
+	local KEY_BUTTON_WIDTH = 150
+	local keyBtn
+	if LibAT and LibAT.UI and LibAT.UI.CreateButton then
+		keyBtn = LibAT.UI.CreateButton(self.window, KEY_BUTTON_WIDTH, 22, '')
+	else
+		keyBtn = CreateFrame('Button', nil, self.window, 'UIPanelButtonTemplate')
+		keyBtn:SetSize(KEY_BUTTON_WIDTH, 22)
+	end
+	keyBtn:SetPoint('BOTTOMRIGHT', self.window, 'BOTTOMRIGHT', -15, 70)
+	keyBtn:RegisterForClicks('LeftButtonUp', 'RightButtonUp')
+	self.keyButton = keyBtn
+
+	self.statusText:SetPoint('RIGHT', keyBtn, 'LEFT', -8, 0)
+
+	local function StopListening()
+		self.listeningForKey = false
+		keyBtn:EnableKeyboard(false)
+		keyBtn:EnableMouseWheel(false)
+		self:UpdateKeyButton()
+	end
+
+	local function KeyChosen(key)
+		StopListening()
+		if key == 'ESCAPE' then
+			return
+		end
+		self:BindKey(key)
+	end
+
+	keyBtn:SetScript('OnClick', function(_, mouseButton)
+		if self.listeningForKey then
+			StopListening()
+			return
+		end
+		if mouseButton == 'RightButton' then
+			if LibsDisenchantAssist:GetNextKey() then
+				LibsDisenchantAssist:ClearNextKey()
+				self:SetStatus('Key removed.')
+			end
+			return
+		end
+		if InCombatLockdown() then
+			self:SetStatus('Keys cannot be changed in combat.')
+			return
+		end
+		self.listeningForKey = true
+		keyBtn:EnableKeyboard(true)
+		keyBtn:EnableMouseWheel(true)
+		keyBtn:SetText('Press a key...')
+	end)
+
+	keyBtn:SetScript('OnKeyDown', function(_, key)
+		if self.listeningForKey and not IGNORED_KEYS[key] then
+			KeyChosen(key == 'ESCAPE' and key or WithModifiers(key))
+		end
+	end)
+	keyBtn:SetScript('OnMouseWheel', function(_, delta)
+		if self.listeningForKey then
+			KeyChosen(WithModifiers(delta > 0 and 'MOUSEWHEELUP' or 'MOUSEWHEELDOWN'))
+		end
+	end)
+	keyBtn:HookScript('OnMouseDown', function(_, mouseButton)
+		local key = MOUSE_BUTTON_KEYS[mouseButton]
+		if self.listeningForKey and key then
+			KeyChosen(WithModifiers(key))
+		end
+	end)
+	keyBtn:HookScript('OnHide', StopListening)
+
+	keyBtn:HookScript('OnEnter', function(btn)
+		GameTooltip:SetOwner(btn, 'ANCHOR_TOP')
+		GameTooltip:SetText('Disenchant with a key', 1, 1, 1)
+		GameTooltip:AddLine('Click, then press any key or turn the mouse wheel. Each press of that key disenchants the next item, even with this window closed.', 0.8, 0.8, 0.8, true)
+		GameTooltip:AddLine('Right-click to remove the key.', 0.8, 0.8, 0.8, true)
+		GameTooltip:AddLine('It is also in Key Bindings, under AddOns.', 0.8, 0.8, 0.8, true)
+		GameTooltip:Show()
+	end)
+	keyBtn:HookScript('OnLeave', function()
+		GameTooltip:Hide()
+	end)
+
+	self:UpdateKeyButton()
+end
+
+---@param key string
+function MainWindow:BindKey(key)
+	local conflict = LibsDisenchantAssist:GetKeyConflict(key)
+	if not conflict then
+		LibsDisenchantAssist:SetNextKey(key)
+		return
+	end
+
+	StaticPopupDialogs['LIBSDA_REPLACE_KEY'] = {
+		text = '|cffb048f8Disenchant Assist|r\n\n%s is used for:\n%s\n\nUse it to disenchant instead?',
+		button1 = 'Yes',
+		button2 = 'No',
+		OnAccept = function(_, data)
+			LibsDisenchantAssist:SetNextKey(data)
+		end,
+		timeout = 0,
+		whileDead = true,
+		hideOnEscape = true,
+		preferredIndex = 3,
+	}
+	local popup = StaticPopup_Show('LIBSDA_REPLACE_KEY', LibsDisenchantAssist:GetKeyText(key) or key, conflict)
+	if popup then
+		popup.data = key
+	end
+end
+
+function MainWindow:UpdateKeyButton()
+	if not self.keyButton or self.listeningForKey then
+		return
+	end
+	local key = LibsDisenchantAssist:GetKeyText(LibsDisenchantAssist:GetNextKey(), true)
+	self.keyButton:SetText(key and ('Key: ' .. key) or 'Set a key')
 end
 
 function MainWindow:CreateSettingsPanel()
@@ -645,14 +877,15 @@ function MainWindow:RefreshItemList()
 		return
 	end
 
+	local engine = LibsDisenchantAssist.DisenchantEngine
 	local items = LibsDisenchantAssist.FilterSystem:GetFilteredItems()
+	local nextItem = engine:PeekNextItem(items)
 
 	for i = 1, MAX_VISIBLE_ITEMS do
 		local row = self.itemRows[i]
-		if items[i] then
-			local item = items[i]
-			row.item = item
-
+		local item = items[i]
+		row.item = item
+		if item then
 			local itemIcon = C_Item.GetItemIconByID(item.itemID)
 			row.Icon:SetTexture(itemIcon)
 
@@ -663,106 +896,139 @@ function MainWindow:RefreshItemList()
 			row.Ilvl:SetText('iLvl ' .. item.itemLevel)
 			row.Ilvl:Show()
 
-			if not InCombatLockdown() then
-				self:SetRowButtonAttributes(row.TypeButton, item)
+			if item == nextItem then
+				row:LockHighlight()
+			else
+				row:UnlockHighlight()
 			end
-
 			row:Show()
 		else
+			row:UnlockHighlight()
 			row:Hide()
-			row.item = nil
-			if not InCombatLockdown() then
-				self:ClearRowButtonAttributes(row.TypeButton)
-			end
 		end
 	end
 
 	local totalHeight = math.max(#items * (ITEM_ROW_HEIGHT + 1), 1)
 	self.itemList:SetHeight(totalHeight)
 
-	self.itemCountText:SetText('Items: ' .. #items)
+	local done = engine:GetSessionCount()
+	if done > 0 then
+		self.itemCountText:SetText('Items: ' .. #items .. '    Disenchanted: ' .. done)
+	else
+		self.itemCountText:SetText('Items: ' .. #items)
+	end
 
-	self:UpdateDisenchantButton()
+	self.nextItem = nextItem
+	self:UpdateDisenchantButton(#items)
+	self:UpdateKeyButton()
+	if not self.statusTimer then
+		self:ShowDefaultStatus()
+	end
 
 	if LibsDisenchantAssist.DataBroker then
 		LibsDisenchantAssist.DataBroker:UpdateText()
 	end
 end
 
----@param btn Button SecureActionButton on the row
----@param item table Item data with bag, slot
-function MainWindow:SetRowButtonAttributes(btn, item)
-	LibsDisenchantAssist:SetDisenchantAttributes(btn, item.bag, item.slot)
-end
-
----@param btn Button SecureActionButton on the row
-function MainWindow:ClearRowButtonAttributes(btn)
-	LibsDisenchantAssist:ClearDisenchantAttributes(btn)
-end
-
-function MainWindow:UpdateDisenchantButton()
+---@param count? number How many items are listed
+function MainWindow:UpdateDisenchantButton(count)
 	if not self.disenchantButton then
 		return
 	end
 
-	local engine = LibsDisenchantAssist.DisenchantEngine
-	local currentItem = engine:GetCurrentItem()
-
-	if currentItem then
-		self.disenchantButton.Text:SetText('>>> DE: ' .. currentItem.itemName .. ' <<<')
-		self.disenchantButton.Text:SetTextColor(1, 1, 0.5, 1)
+	local text = self.disenchantButton.Text
+	count = count or #LibsDisenchantAssist.FilterSystem:GetFilteredItems()
+	if LibsDisenchantAssist.DisenchantEngine:GetCastingItem() then
+		text:SetText('Disenchanting...')
+		text:SetTextColor(1, 1, 0.5, 1)
+	elseif count > 0 then
+		text:SetText('Disenchant next  (' .. count .. ' left)')
+		text:SetTextColor(1, 1, 1, 1)
 	else
-		local items = LibsDisenchantAssist.FilterSystem:GetFilteredItems()
-		if #items > 0 then
-			self.disenchantButton.Text:SetText('Disenchant All (' .. #items .. ' items)')
-			self.disenchantButton.Text:SetTextColor(1, 1, 1, 1)
-		else
-			self.disenchantButton.Text:SetText('No items to disenchant')
-			self.disenchantButton.Text:SetTextColor(0.5, 0.5, 0.5, 1)
-		end
+		text:SetText('Nothing to disenchant')
+		text:SetTextColor(0.5, 0.5, 0.5, 1)
 	end
 end
 
-function MainWindow:UpdateStatus(text)
-	if self.statusText then
-		self.statusText:SetText(text)
-	end
-end
-
-function MainWindow:OnEngineReady(_, item)
-	if not item then
+---Show a message under the list for a few seconds, then go back to the usual "Next:" line.
+---@param text string
+---@param seconds? number
+function MainWindow:SetStatus(text, seconds)
+	if not self.statusText then
 		return
 	end
-	self:UpdateStatus('Ready - Click to disenchant: ' .. item.itemName)
-	self:UpdateDisenchantButton()
+	self.statusText:SetText(text)
+	if self.statusTimer then
+		self:CancelTimer(self.statusTimer)
+	end
+	self.statusTimer = self:ScheduleTimer('ShowDefaultStatus', seconds or 4)
+end
+
+function MainWindow:ShowDefaultStatus()
+	if self.statusTimer then
+		self:CancelTimer(self.statusTimer)
+		self.statusTimer = nil
+	end
+	if not self.statusText then
+		return
+	end
+	local casting = LibsDisenchantAssist.DisenchantEngine:GetCastingItem()
+	if casting then
+		self.statusText:SetText('Disenchanting ' .. (casting.itemLink or casting.itemName) .. '...')
+	elseif self.nextItem then
+		self.statusText:SetText('Next: ' .. (self.nextItem.itemLink or self.nextItem.itemName))
+	else
+		self.statusText:SetText('')
+	end
 end
 
 function MainWindow:OnEngineCasting(_, item)
-	if not item then
+	if not item or not self.window then
 		return
 	end
-	self:UpdateStatus('Disenchanting ' .. item.itemName .. '...')
+	self:UpdateDisenchantButton()
+	self:ShowDefaultStatus()
 end
 
-function MainWindow:OnItemDestroyed(_, item, destroyed, total)
-	if not item then
+function MainWindow:OnItemDestroyed(_, item)
+	if not item or not self.window then
 		return
 	end
-	self:UpdateStatus('Disenchanted ' .. destroyed .. ' of ' .. total)
-	self:RefreshItemList()
+	self:ScheduleRefresh()
+	self:ShowDefaultStatus()
 end
 
-function MainWindow:OnQueueComplete(_, destroyed, total)
-	self:UpdateStatus('Done! Disenchanted ' .. (destroyed or 0) .. ' of ' .. (total or 0) .. ' items')
-	self:RefreshItemList()
+function MainWindow:OnCastFailed()
+	if not self.window then
+		return
+	end
 	self:UpdateDisenchantButton()
+	self:ShowDefaultStatus()
 end
 
-function MainWindow:OnQueueStopped()
-	self:UpdateStatus('Stopped')
-	self:UpdateDisenchantButton()
+-- What a press that did nothing means for the player. Spam-pressing while a cast is under way
+-- is normal, so that one says nothing.
+local BLOCKED_TEXT = {
+	combat = 'In combat. Disenchanting works again after the fight.',
+	loot = 'Take the materials from the loot window first. Are your bags full?',
+	empty = 'Nothing left to disenchant.',
+	cursor = 'Put down what is on your cursor first.',
+}
+
+function MainWindow:OnBlocked(_, reason)
+	local text = BLOCKED_TEXT[reason]
+	if not text then
+		return
+	end
+	if self.window and self.window:IsVisible() then
+		self:SetStatus(text)
+	elseif UIErrorsFrame then
+		UIErrorsFrame:AddMessage(text, 1, 0.1, 0.1)
+	end
 end
 
 function MainWindow:OnQueuePaused(_, reason)
-	self:UpdateStatus('Paused: ' .. (reason or 'unknown'))
+	if reason == 'combat' and self.window and self.window:IsVisible() then
+		self:SetStatus(BLOCKED_TEXT.combat)
+	end
 end
